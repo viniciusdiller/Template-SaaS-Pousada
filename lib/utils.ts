@@ -21,3 +21,23 @@ export function formatDateLabel(date: Date) {
     month: 'short',
   }).format(date);
 }
+
+export function extractDigits(value: string) {
+  return value.replace(/\D/g, '');
+}
+
+export function formatCurrencyInput(value: string, currency = 'BRL', locale = 'pt-BR') {
+  const digits = extractDigits(value);
+  const amount = Number(digits || '0') / 100;
+
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+export function parseCurrencyInput(value: string) {
+  return Number(extractDigits(value) || '0') / 100;
+}

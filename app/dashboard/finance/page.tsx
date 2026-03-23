@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowDownCircle, ArrowUpCircle, Landmark, Plus, ReceiptText, WalletCards, X } from 'lucide-react';
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { formatCurrencyInput, parseCurrencyInput } from '@/lib/utils';
 import { createExpense, getExpenses, getReservations } from '@/services/channexService';
 import type { Expense, ExpenseCategory, Reservation } from '@/types/channex';
 
@@ -69,7 +70,10 @@ export default function FinancePage() {
   }, []);
 
   const grossRevenue = useMemo(
-    () => reservations.reduce((total, reservation) => total + reservation.amount, 0),
+    () =>
+      reservations
+        .filter((reservation) => reservation.status !== 'cancelled' && reservation.status !== 'blocked')
+        .reduce((total, reservation) => total + reservation.amount, 0),
     [reservations],
   );
   const totalExpenses = useMemo(() => expenses.reduce((total, expense) => total + expense.amount, 0), [expenses]);
@@ -84,7 +88,7 @@ export default function FinancePage() {
       return;
     }
 
-    const amount = Number(form.amount);
+    const amount = parseCurrencyInput(form.amount);
 
     if (Number.isNaN(amount) || amount <= 0) {
       setError('Informe um valor válido maior do que zero.');
@@ -111,16 +115,16 @@ export default function FinancePage() {
 
   const cards = [
     {
-      title: 'Rendimento Bruto',
+      title: 'Faturamento Bruto',
       value: formatCurrency(grossRevenue),
-      description: 'Receita consolidada de todas as reservas carregadas.',
+      description: 'Receita consolidada de todas as reservas ativas carregadas.',
       icon: ArrowUpCircle,
       tone: 'text-emerald-300 bg-emerald-400/10 border-emerald-400/20',
     },
     {
       title: 'Total de Despesas',
       value: formatCurrency(totalExpenses),
-      description: 'Despesas operacionais registadas no período atual.',
+      description: 'Despesas operacionais registradas no período atual.',
       icon: ArrowDownCircle,
       tone: 'text-rose-300 bg-rose-400/10 border-rose-400/20',
     },
@@ -142,7 +146,7 @@ export default function FinancePage() {
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-300">Aba financeira</p>
               <h2 className="mt-3 text-3xl font-semibold text-white">Saúde financeira da operação</h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
-                Monitorize a receita total das reservas, acompanhe custos recorrentes e registe novas despesas sem sair do painel.
+                Monitore a receita total das reservas, acompanhe custos recorrentes e registre novas despesas sem sair do painel.
               </p>
             </div>
             <button
@@ -185,11 +189,11 @@ export default function FinancePage() {
                 <ReceiptText className="h-4 w-4 text-sky-300" />
                 Histórico de despesas
               </div>
-              <h3 className="mt-4 text-2xl font-semibold text-white">Custos registados</h3>
+              <h3 className="mt-4 text-2xl font-semibold text-white">Custos registrados</h3>
               <p className="mt-2 text-sm text-slate-400">Atualizado a partir do mock service preparado para futura integração via Sequelize.</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-slate-300">
-              {expenses.length} lançamentos registados
+              {expenses.length} lançamentos registrados
             </div>
           </div>
 
@@ -266,7 +270,7 @@ export default function FinancePage() {
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-300">Nova despesa</p>
                   <h3 className="mt-3 text-2xl font-semibold text-white">Adicionar lançamento financeiro</h3>
-                  <p className="mt-2 text-sm text-slate-400">Registe despesas operacionais para refletir o lucro líquido da pousada.</p>
+                  <p className="mt-2 text-sm text-slate-400">Registre despesas operacionais para refletir o lucro líquido da pousada.</p>
                 </div>
                 <button
                   onClick={() => setIsModalOpen(false)}
@@ -283,7 +287,7 @@ export default function FinancePage() {
                     type="text"
                     value={form.description}
                     onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-                    placeholder="Ex.: Reparação do sistema hidráulico"
+                    placeholder="Ex.: Reparo do sistema hidráulico"
                     className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
                   />
                 </label>
@@ -292,12 +296,13 @@ export default function FinancePage() {
                   <label className="block">
                     <span className="mb-2 block text-sm font-medium text-slate-200">Valor</span>
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                      type="text"
                       value={form.amount}
-                      onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
-                      placeholder="0,00"
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, amount: formatCurrencyInput(event.target.value) }))
+                      }
+                      inputMode="numeric"
+                      placeholder="R$ 0,00"
                       className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
                     />
                   </label>

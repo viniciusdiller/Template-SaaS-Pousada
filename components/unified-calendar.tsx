@@ -3,8 +3,11 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   BedDouble,
+  CalendarDays,
   CalendarClock,
   CalendarPlus2,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
   LogOut,
   Mail,
@@ -20,7 +23,7 @@ import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { CalendarSkeleton } from '@/components/calendar-skeleton';
 import { useToast } from '@/components/toast-provider';
-import { addDays, cn, differenceInDays, formatDateLabel } from '@/lib/utils';
+import { addDays, cn, differenceInDays, formatCurrencyInput, formatDateLabel, parseCurrencyInput } from '@/lib/utils';
 import { getReservations, getRooms, updateReservation } from '@/services/channexService';
 import type { OtaSource, Reservation, ReservationStatus, Room } from '@/types/channex';
 
@@ -52,7 +55,8 @@ const STATUS_STYLES: Record<ReservationStatus, string> = {
   blocked: 'border-violet-400/20 bg-violet-400/10 text-violet-200',
 };
 
-const DAYS_VISIBLE = 10;
+const DAY_RANGE_OPTIONS = [7, 14, 21, 30] as const;
+const DEFAULT_DAYS_VISIBLE = 14;
 const GRID_START = new Date('2026-03-23T00:00:00');
 
 type ManualEntryForm = {
@@ -112,7 +116,7 @@ function createDraft(reservation: Reservation): ReservationDraft {
     status: reservation.status,
     otaSource: reservation.otaSource,
     channelReference: reservation.channelReference,
-    amount: String(reservation.amount),
+    amount: formatCurrencyInput(String(Math.round(reservation.amount * 100)), reservation.currency),
     currency: reservation.currency,
     customerName: reservation.customer.name,
     customerEmail: reservation.customer.email,
@@ -135,6 +139,8 @@ export function UnifiedCalendar() {
   const [draft, setDraft] = useState<ReservationDraft | null>(null);
   const [drawerError, setDrawerError] = useState<string | null>(null);
   const [isUpdatingReservation, setIsUpdatingReservation] = useState(false);
+  const [daysVisible, setDaysVisible] = useState<number>(DEFAULT_DAYS_VISIBLE);
+  const [gridStart, setGridStart] = useState<Date>(GRID_START);
 
   useEffect(() => {
     async function loadData() {
@@ -148,27 +154,31 @@ export function UnifiedCalendar() {
     void loadData();
   }, []);
 
-  const days = useMemo(() => Array.from({ length: DAYS_VISIBLE }, (_, index) => addDays(GRID_START, index)), []);
-  const activeRooms = useMemo(() => rooms.filter((room) => room.status === 'active'), [rooms]);
-  const manualEntriesCount = useMemo(
-    () => reservations.filter((reservation) => reservation.otaSource === 'manual').length,
+  const visibleReservations = useMemo(
+    () => reservations.filter((reservation) => reservation.status !== 'cancelled'),
     [reservations],
   );
+  const days = useMemo(() => Array.from({ length: daysVisible }, (_, index) => addDays(gridStart, index)), [daysVisible, gridStart]);
+  const activeRooms = useMemo(() => rooms.filter((room) => room.status === 'active'), [rooms]);
+  const manualEntriesCount = useMemo(
+    () => visibleReservations.filter((reservation) => reservation.otaSource === 'manual').length,
+    [visibleReservations],
+  );
   const confirmedRevenue = useMemo(
-    () => reservations.filter((reservation) => reservation.status !== 'blocked').reduce((sum, item) => sum + item.amount, 0),
-    [reservations],
+    () =>
+      visibleReservations
+        .filter((reservation) => reservation.status !== 'blocked')
+        .reduce((sum, item) => sum + item.amount, 0),
+    [visibleReservations],
   );
   const occupancy = useMemo(() => {
     const totalSlots = activeRooms.length * days.length;
-    const usedSlots = reservations.reduce((sum, reservation) => {
-      if (reservation.status === 'cancelled') {
-        return sum;
-      }
-
+    const rangeEnd = addDays(gridStart, days.length);
+    const usedSlots = visibleReservations.reduce((sum, reservation) => {
       const start = new Date(`${reservation.checkIn}T00:00:00`);
       const end = new Date(`${reservation.checkOut}T00:00:00`);
-      const visibleStart = start > GRID_START ? start : GRID_START;
-      const visibleEnd = end < addDays(GRID_START, days.length) ? end : addDays(GRID_START, days.length);
+      const visibleStart = start > gridStart ? start : gridStart;
+      const visibleEnd = end < rangeEnd ? end : rangeEnd;
 
       if (visibleEnd <= visibleStart) {
         return sum;
@@ -178,7 +188,7 @@ export function UnifiedCalendar() {
     }, 0);
 
     return totalSlots ? Math.min(100, Math.round((usedSlots / totalSlots) * 100)) : 0;
-  }, [activeRooms.length, days.length, reservations]);
+  }, [activeRooms.length, days.length, gridStart, visibleReservations]);
 
   const selectedReservation = useMemo(
     () => reservations.find((reservation) => reservation.id === selectedReservationId) ?? null,
@@ -251,7 +261,7 @@ export function UnifiedCalendar() {
         email: entry.entryType === 'manual_reservation' ? 'recepcao@empresa-sancho.com' : 'ops@empresa-sancho.com',
         phone: '+55 81 3000-0000',
       },
-      notes: entry.note.trim() || 'Lançamento manual criado pela equipa operacional.',
+      notes: entry.note.trim() || 'Lançamento manual criado pela equipe operacional.',
     };
 
     setReservations((current) => [...current, nextReservation]);
@@ -300,7 +310,7 @@ export function UnifiedCalendar() {
       return;
     }
 
-    const amount = Number(draft.amount);
+    const amount = parseCurrencyInput(draft.amount);
 
     if (Number.isNaN(amount) || amount < 0) {
       setDrawerError('Informe um valor numérico válido para a reserva.');
@@ -333,11 +343,21 @@ export function UnifiedCalendar() {
       setReservations((current) =>
         current.map((reservation) => (reservation.id === savedReservation.id ? savedReservation : reservation)),
       );
+      if (savedReservation.status === 'cancelled') {
+        closeReservationDrawer();
+        showToast('Reserva cancelada e removida da grade do calendário.');
+        return;
+      }
+
       setDraft(createDraft(savedReservation));
       showToast('Reserva atualizada com sucesso.');
     } finally {
       setIsUpdatingReservation(false);
     }
+  }
+
+  function shiftTimeline(direction: 'previous' | 'next') {
+    setGridStart((current) => addDays(current, direction === 'next' ? 7 : -7));
   }
 
   if (loading) {
@@ -351,9 +371,9 @@ export function UnifiedCalendar() {
           <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-300">Calendário operacional</p>
-              <h2 className="mt-3 text-3xl font-semibold text-white">Disponibilidade com visão de PMS moderno</h2>
+              <h2 className="mt-3 text-3xl font-semibold text-white">Disponibilidade com visual de PMS moderno</h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
-                Acompanhe ocupação, moderar reservas em contexto e lance bloqueios manuais sem depender de outro módulo.
+                Acompanhe a ocupação, visualize mais períodos no tempo e modere reservas em contexto sem sair da grade.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -415,7 +435,7 @@ export function UnifiedCalendar() {
                   <p className="mt-4 text-sm text-slate-400">{occupancy}% de ocupação visível na janela de {days.length} dias.</p>
                 ) : null}
                 {card.label === 'Lançamentos manuais' ? (
-                  <p className="mt-4 text-sm text-slate-400">Bloqueios e reservas criados diretamente pela equipa.</p>
+                  <p className="mt-4 text-sm text-slate-400">Bloqueios e reservas criados diretamente pela equipe.</p>
                 ) : null}
               </div>
             );
@@ -431,18 +451,68 @@ export function UnifiedCalendar() {
               </div>
               <h3 className="mt-4 text-2xl font-semibold text-white">Calendário por acomodação</h3>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Clique num bloco para moderar uma reserva. Clique num espaço vazio para criar um lançamento manual.
+                Clique em uma reserva para editar. Clique em um espaço vazio para criar um lançamento manual.
               </p>
             </div>
-            <div className="flex flex-wrap gap-3 text-sm text-slate-400">
-              <div className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-2">Janela de {days.length} dias</div>
-              <div className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-2">Flat design com hierarquia clara</div>
+            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-400">
+              <div className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-2">
+                {days.length} dias visíveis
+              </div>
+              <div className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-2">Reservas canceladas ficam ocultas na grade</div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-4 rounded-[24px] border border-white/10 bg-slate-950/50 p-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-slate-300">
+                <CalendarDays className="h-4 w-4 text-sky-300" />
+                {formatLongDate(days[0].toISOString().slice(0, 10))} até {formatLongDate(days[days.length - 1].toISOString().slice(0, 10))}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => shiftTimeline('previous')}
+                  className="rounded-2xl border border-white/10 bg-slate-900/80 p-3 text-slate-200 transition hover:border-white/20"
+                  aria-label="Ver período anterior"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setGridStart(GRID_START)}
+                  className="rounded-2xl border border-white/10 bg-slate-900/80 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-white/20"
+                >
+                  Hoje
+                </button>
+                <button
+                  onClick={() => shiftTimeline('next')}
+                  className="rounded-2xl border border-white/10 bg-slate-900/80 p-3 text-slate-200 transition hover:border-white/20"
+                  aria-label="Ver próximo período"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {DAY_RANGE_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  onClick={() => setDaysVisible(option)}
+                  className={cn(
+                    'rounded-2xl border px-4 py-3 text-sm font-medium transition',
+                    daysVisible === option
+                      ? 'border-sky-400/40 bg-sky-500/10 text-sky-200'
+                      : 'border-white/10 bg-slate-900/80 text-slate-300 hover:border-white/20',
+                  )}
+                >
+                  {option} dias
+                </button>
+              ))}
             </div>
           </div>
 
           <div className="mt-6 overflow-x-auto">
-            <div className="min-w-[1240px] space-y-4">
-              <div className="grid grid-cols-[260px_repeat(10,minmax(96px,1fr))] gap-3">
+            <div className="space-y-4" style={{ minWidth: `${260 + days.length * 108}px` }}>
+              <div className="grid gap-3" style={{ gridTemplateColumns: `260px repeat(${days.length}, minmax(96px, 1fr))` }}>
                 <div className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-4 text-sm font-medium text-slate-300">
                   Acomodações
                 </div>
@@ -458,10 +528,14 @@ export function UnifiedCalendar() {
               </div>
 
               {rooms.map((room) => {
-                const roomReservations = reservations.filter((reservation) => reservation.roomId === room.id);
+                const roomReservations = visibleReservations.filter((reservation) => reservation.roomId === room.id);
 
                 return (
-                  <div key={room.id} className="grid grid-cols-[260px_repeat(10,minmax(96px,1fr))] gap-3">
+                  <div
+                    key={room.id}
+                    className="grid gap-3"
+                    style={{ gridTemplateColumns: `260px repeat(${days.length}, minmax(96px, 1fr))` }}
+                  >
                     <div className="rounded-[24px] border border-white/10 bg-slate-950/60 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
@@ -481,7 +555,13 @@ export function UnifiedCalendar() {
                       </div>
                     </div>
 
-                    <div className="relative col-span-10 grid h-[120px] grid-cols-10 gap-3 rounded-[24px] border border-white/10 bg-slate-950/50 p-3">
+                    <div
+                      className="relative grid h-[120px] gap-3 rounded-[24px] border border-white/10 bg-slate-950/50 p-3"
+                      style={{
+                        gridColumn: `span ${days.length} / span ${days.length}`,
+                        gridTemplateColumns: `repeat(${days.length}, minmax(96px, 1fr))`,
+                      }}
+                    >
                       {days.map((day) => (
                         <button
                           key={`${room.id}-${day.toISOString()}`}
@@ -492,12 +572,12 @@ export function UnifiedCalendar() {
                       ))}
 
                       {roomReservations.map((reservation) => {
-                        const startOffset = differenceInDays(GRID_START, new Date(`${reservation.checkIn}T00:00:00`)) - 1;
+                        const startOffset = differenceInDays(gridStart, new Date(`${reservation.checkIn}T00:00:00`)) - 1;
                         const duration = differenceInDays(
                           new Date(`${reservation.checkIn}T00:00:00`),
                           new Date(`${reservation.checkOut}T00:00:00`),
                         );
-                        const visibleDuration = Math.min(duration, DAYS_VISIBLE - Math.max(0, startOffset));
+                        const visibleDuration = Math.min(duration, daysVisible - Math.max(0, startOffset));
 
                         if (visibleDuration <= 0) {
                           return null;
@@ -515,8 +595,8 @@ export function UnifiedCalendar() {
                               OTA_STYLES[reservation.otaSource],
                             )}
                             style={{
-                              left: `calc(${Math.max(0, startOffset)} * (100% / 10) + ${Math.max(0, startOffset)} * 0.75rem + 0.75rem)`,
-                              width: `calc(${visibleDuration} * (100% / 10) + ${Math.max(visibleDuration - 1, 0)} * 0.75rem - 0.75rem)`,
+                              left: `calc(${Math.max(0, startOffset)} * (100% / ${daysVisible}) + ${Math.max(0, startOffset)} * 0.75rem + 0.75rem)`,
+                              width: `calc(${visibleDuration} * (100% / ${daysVisible}) + ${Math.max(visibleDuration - 1, 0)} * 0.75rem - 0.75rem)`,
                             }}
                           >
                             <div>
@@ -567,7 +647,7 @@ export function UnifiedCalendar() {
                   <p className="text-xs font-semibold uppercase tracking-[0.35em] text-violet-200">Lançamento manual</p>
                   <h3 className="mt-3 text-2xl font-semibold text-white">Adicionar reserva ou bloqueio</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-400">
-                    Registe períodos ocupados, manutenção ou reservas criadas diretamente pela sua equipa.
+                    Registre períodos ocupados, manutenção ou reservas criadas diretamente pela sua equipe.
                   </p>
                 </div>
                 <button
@@ -721,7 +801,7 @@ export function UnifiedCalendar() {
                     icon: Receipt,
                   },
                   {
-                    label: 'Contacto',
+                    label: 'Contato',
                     value: selectedReservation.customer.email || 'Sem email informado',
                     icon: Mail,
                   },
@@ -834,11 +914,15 @@ export function UnifiedCalendar() {
                   <label className="block">
                     <span className="mb-2 block text-sm font-medium text-slate-200">Valor</span>
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                      type="text"
                       value={draft.amount}
-                      onChange={(event) => setDraft((current) => (current ? { ...current, amount: event.target.value } : current))}
+                      onChange={(event) =>
+                        setDraft((current) =>
+                          current ? { ...current, amount: formatCurrencyInput(event.target.value, current.currency) } : current,
+                        )
+                      }
+                      inputMode="numeric"
+                      placeholder="R$ 0,00"
                       className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none"
                     />
                   </label>
@@ -847,7 +931,17 @@ export function UnifiedCalendar() {
                     <input
                       type="text"
                       value={draft.currency}
-                      onChange={(event) => setDraft((current) => (current ? { ...current, currency: event.target.value.toUpperCase() } : current))}
+                      onChange={(event) =>
+                        setDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                currency: event.target.value.toUpperCase(),
+                                amount: formatCurrencyInput(current.amount, event.target.value.toUpperCase() || 'BRL'),
+                              }
+                            : current,
+                        )
+                      }
                       className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm uppercase text-white outline-none"
                     />
                   </label>
@@ -896,7 +990,7 @@ export function UnifiedCalendar() {
                       disabled={isUpdatingReservation}
                       className="rounded-2xl bg-sky-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-950/30 disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      {isUpdatingReservation ? 'Salvando...' : 'Guardar alterações'}
+                      {isUpdatingReservation ? 'Salvando...' : 'Salvar alterações'}
                     </button>
                   </div>
                 </div>

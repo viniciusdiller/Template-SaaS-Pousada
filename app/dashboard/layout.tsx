@@ -33,7 +33,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-300">Channel Manager</p>
               <h1 className="mt-3 text-2xl font-semibold text-white">Empresa Sancho</h1>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Painel operacional para disponibilidade, moderação de reservas e controlo financeiro.
+                Painel operacional para disponibilidade, moderação de reservas e controle financeiro.
               </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-slate-800/70 p-3 text-slate-300">
