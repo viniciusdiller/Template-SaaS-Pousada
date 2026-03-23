@@ -10,13 +10,32 @@ export type Room = {
 
 export type ReservationStatus = 'confirmed' | 'pending' | 'cancelled' | 'blocked';
 
+export type Customer = {
+  name: string;
+  email: string;
+  phone: string;
+};
+
 export type Reservation = {
   id: string;
   roomId: string;
-  guestName: string;
   checkIn: string;
   checkOut: string;
   status: ReservationStatus;
   otaSource: OtaSource;
   channelReference: string;
+  amount: number;
+  currency: string;
+  customer: Customer;
+  notes: string;
+};
+
+export type ExpenseCategory = 'limpeza' | 'manutenção' | 'impostos' | 'insumos' | 'comissões' | 'outros';
+
+export type Expense = {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  category: ExpenseCategory;
 };
