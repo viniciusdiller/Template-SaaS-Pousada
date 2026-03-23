@@ -29,7 +29,7 @@ export function LoginForm() {
 
     if (!response.ok) {
       const payload = (await response.json()) as { message?: string };
-      setError(payload.message ?? 'Não foi possível autenticar.');
+      setError(payload.message ?? 'Não foi possível acessar a conta.');
       return;
     }
 
@@ -47,11 +47,11 @@ export function LoginForm() {
     >
       <div className="mb-8 space-y-2">
         <span className="inline-flex rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.3em] text-sky-200">
-          Channel Manager MVP
+          Sistema de Gestão de Reservas
         </span>
-        <h1 className="text-3xl font-semibold text-white">Acesse a operação da pousada</h1>
+        <h1 className="text-3xl font-semibold text-white">Bem-vindo à [Nome da Sua Pousada]</h1>
         <p className="text-sm leading-6 text-slate-300">
-          Centralize Booking.com, Expedia e Hoteis.com em uma visão única e elegante.
+          Entre para acompanhar a ocupação, organizar bloqueios e manter o calendário da sua hospedagem sempre atualizado.
         </p>
       </div>
 
@@ -65,7 +65,7 @@ export function LoginForm() {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               className="w-full bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-500"
-              placeholder="voce@pousada.com"
+              placeholder="gestao@pousada.com"
             />
           </div>
         </label>
@@ -95,11 +95,11 @@ export function LoginForm() {
         className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-sky-500 px-4 py-3 text-sm font-semibold text-slate-950 shadow-glow disabled:cursor-not-allowed disabled:opacity-70"
       >
         {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-        Entrar no painel
+        Acessar painel
       </motion.button>
 
       <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
-        <p className="font-medium text-white">Credenciais de demonstração</p>
+        <p className="font-medium text-white">Acesso de demonstração</p>
         <p>E-mail: admin@pousadasancho.com</p>
         <p>Senha: sancho123</p>
       </div>

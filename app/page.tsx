@@ -1,21 +1,21 @@
-import { ArrowRightLeft, Building2, ShieldCheck } from 'lucide-react';
+import { CalendarDays, ConciergeBell, ShieldCheck } from 'lucide-react';
 import { LoginForm } from '@/components/login-form';
 
 const highlights = [
   {
-    icon: ArrowRightLeft,
-    title: 'Integração futura com Channex',
-    description: 'Arquitetura desacoplada via service layer para substituir mocks por API real sem retrabalho na UI.',
+    icon: CalendarDays,
+    title: 'Calendário centralizado',
+    description: 'Visualize em um só lugar as entradas, saídas e períodos indisponíveis da sua hospedagem.',
   },
   {
     icon: ShieldCheck,
-    title: 'Proteção de rotas na raiz',
-    description: 'A homepage atua como login e o middleware bloqueia qualquer acesso direto ao dashboard.',
+    title: 'Mais segurança na operação',
+    description: 'Acompanhe a ocupação com clareza e reduza conflitos entre reservas e bloqueios.',
   },
   {
-    icon: Building2,
-    title: 'Visão premium por quarto',
-    description: 'Calendário estilo Gantt com foco em ocupação, manutenção e prevenção de overbooking.',
+    icon: ConciergeBell,
+    title: 'Rotina mais ágil',
+    description: 'Ganhe tempo para cuidar da experiência dos hóspedes com uma gestão simples e elegante.',
   },
 ];
 
@@ -25,13 +25,13 @@ export default function LoginPage() {
       <section className="max-w-xl space-y-8">
         <div className="space-y-4">
           <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.35em] text-slate-300">
-            Operação exclusiva da pousada
+            Gestão exclusiva para hotelaria
           </span>
           <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-            Unifique reservas de Booking, Expedia e Hoteis.com em um só painel.
+            Organize as reservas da [Nome da Sua Pousada] com mais clareza e tranquilidade.
           </h1>
           <p className="max-w-lg text-base leading-7 text-slate-300">
-            MVP full-stack preparado para evoluir para um channel manager conectado ao Channex.io e persistido em MySQL com Sequelize.
+            Acompanhe disponibilidade, bloqueios e movimentações do calendário em uma experiência pensada para o dia a dia da sua operação.
           </p>
         </div>
 

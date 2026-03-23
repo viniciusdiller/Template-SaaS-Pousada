@@ -1,4 +1,4 @@
-export type OtaSource = 'booking' | 'expedia' | 'hotels_com';
+export type OtaSource = 'booking' | 'expedia' | 'hotels_com' | 'manual';
 
 export type Room = {
   id: string;
