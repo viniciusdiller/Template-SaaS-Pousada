@@ -8,14 +8,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Informe e-mail e senha.' }, { status: 400 });
   }
 
-  const isValid = await validateCredentials(body.email, body.password);
+  const authResult = await validateCredentials(body.email, body.password);
 
-  if (!isValid) {
-    return NextResponse.json({ message: 'Credenciais inválidas.' }, { status: 401 });
+  if (!authResult.ok) {
+    if (authResult.reason === 'login_disabled') {
+      return NextResponse.json({ message: 'Este login da equipe esta desativado.' }, { status: 403 });
+    }
+
+    return NextResponse.json({ message: 'Credenciais invalidas.' }, { status: 401 });
   }
 
-  const response = NextResponse.json({ ok: true });
-  response.cookies.set(authConfig.cookieName, 'authenticated', {
+  const response = NextResponse.json({
+    ok: true,
+    user: authResult.session,
+  });
+
+  response.cookies.set(authConfig.cookieName, authResult.token, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { LoaderCircle, LockKeyhole, Mail } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
+import { firstAllowedDashboardRoute, type SessionUser } from '@/lib/auth-shared';
 
 export function LoginForm() {
   const router = useRouter();
@@ -27,13 +28,14 @@ export function LoginForm() {
 
     setLoading(false);
 
+    const payload = (await response.json()) as { message?: string; user?: SessionUser };
+
     if (!response.ok) {
-      const payload = (await response.json()) as { message?: string };
-      setError(payload.message ?? 'Não foi possível acessar a conta.');
+      setError(payload.message ?? 'Nao foi possivel acessar a conta.');
       return;
     }
 
-    router.push('/dashboard/calendar');
+    router.push(firstAllowedDashboardRoute(payload.user ?? null));
     router.refresh();
   }
 

@@ -31,80 +31,103 @@ const rooms: Room[] = [
   },
 ];
 
+function formatDateOnly(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function addDays(baseDate: Date, days: number) {
+  const date = new Date(baseDate);
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+const today = new Date();
+const yesterday = addDays(today, -1);
+const tomorrow = addDays(today, 1);
+const inTwoDays = addDays(today, 2);
+
 let reservations: Reservation[] = [
   {
     id: 'res_001',
     roomId: 'room-master-01',
-    checkIn: '2026-03-23',
-    checkOut: '2026-03-26',
+    checkIn: formatDateOnly(today),
+    checkOut: formatDateOnly(inTwoDays),
     status: 'confirmed',
     otaSource: 'booking',
-    channelReference: 'BK-483920',
+    channelReference: 'BK-483920-A',
     amount: 2780,
     currency: 'BRL',
     customer: {
-      name: 'Marina Carvalho',
-      email: 'marina.carvalho@email.com',
+      name: 'Hospede Exemplo 01',
+      email: 'hospede01@email.com',
       phone: '+55 11 99888-1020',
     },
-    notes: 'Chegada prevista às 15h30. Solicita quarto silencioso e berço disponível no check-in.',
+    notes: 'Dado generico para demonstracao de check-in.',
+    checkedInAt: null,
+    checkedOutAt: null,
   },
   {
     id: 'res_002',
-    roomId: 'room-master-01',
-    checkIn: '2026-03-27',
-    checkOut: '2026-03-30',
-    status: 'pending',
+    roomId: 'room-bangalo-02',
+    checkIn: formatDateOnly(today),
+    checkOut: formatDateOnly(tomorrow),
+    status: 'confirmed',
     otaSource: 'expedia',
-    channelReference: 'EX-219301',
+    channelReference: 'EX-219301-B',
     amount: 2410,
     currency: 'BRL',
     customer: {
-      name: 'Paulo Mendes',
-      email: 'paulo.mendes@email.com',
+      name: 'Hospede Exemplo 02',
+      email: 'hospede02@email.com',
       phone: '+55 21 99771-1188',
     },
-    notes: 'Reserva com pagamento pendente. Confirmar preferência por cama extra.',
+    notes: 'Reserva de exemplo para equipe de recepcao.',
+    checkedInAt: null,
+    checkedOutAt: null,
   },
   {
     id: 'res_003',
-    roomId: 'room-bangalo-02',
-    checkIn: '2026-03-24',
-    checkOut: '2026-03-29',
+    roomId: 'room-deluxe-03',
+    checkIn: formatDateOnly(yesterday),
+    checkOut: formatDateOnly(today),
     status: 'confirmed',
     otaSource: 'hotels_com',
-    channelReference: 'HT-772045',
-    amount: 3890,
+    channelReference: 'HT-772045-C',
+    amount: 1940,
     currency: 'BRL',
     customer: {
-      name: 'Laura Silveira',
-      email: 'laura.silveira@email.com',
+      name: 'Hospede Exemplo 03',
+      email: 'hospede03@email.com',
       phone: '+55 31 98822-7412',
     },
-    notes: 'Hóspede VIP com pedido de amenities premium e late check-out sujeito à disponibilidade.',
+    notes: 'Exemplo com check-in ja realizado aguardando check-out.',
+    checkedInAt: addDays(today, -1).toISOString(),
+    checkedOutAt: null,
   },
   {
     id: 'res_004',
-    roomId: 'room-deluxe-03',
-    checkIn: '2026-03-25',
-    checkOut: '2026-03-27',
-    status: 'blocked',
+    roomId: 'room-standard-04',
+    checkIn: formatDateOnly(yesterday),
+    checkOut: formatDateOnly(today),
+    status: 'confirmed',
     otaSource: 'manual',
-    channelReference: 'OPS-BLOCK-03',
-    amount: 0,
+    channelReference: 'DIR-9001-D',
+    amount: 860,
     currency: 'BRL',
     customer: {
-      name: 'Bloqueio Operacional',
-      email: 'ops@empresa-sancho.com',
+      name: 'Hospede Exemplo 04',
+      email: 'hospede04@email.com',
       phone: '+55 81 3000-0003',
     },
-    notes: 'Bloqueio para vistoria elétrica e revisão do ar-condicionado.',
+    notes: 'Check-out pendente para demonstracao operacional.',
+    checkedInAt: addDays(today, -1).toISOString(),
+    checkedOutAt: null,
   },
   {
     id: 'res_005',
-    roomId: 'room-standard-04',
-    checkIn: '2026-03-23',
-    checkOut: '2026-03-31',
+    roomId: 'room-deluxe-03',
+    checkIn: formatDateOnly(tomorrow),
+    checkOut: formatDateOnly(inTwoDays),
     status: 'blocked',
     otaSource: 'manual',
     channelReference: 'OPS-MAINT-01',
@@ -115,7 +138,28 @@ let reservations: Reservation[] = [
       email: 'manutencao@empresa-sancho.com',
       phone: '+55 81 3000-0004',
     },
-    notes: 'Interdição temporária para pintura e troca de enxoval.',
+    notes: 'Interdicao temporaria para pintura e troca de enxoval.',
+    checkedInAt: null,
+    checkedOutAt: null,
+  },
+  {
+    id: 'res_006',
+    roomId: 'room-master-01',
+    checkIn: formatDateOnly(yesterday),
+    checkOut: formatDateOnly(tomorrow),
+    status: 'pending',
+    otaSource: 'booking',
+    channelReference: 'BK-7001-E',
+    amount: 3180,
+    currency: 'BRL',
+    customer: {
+      name: 'Hospede Exemplo 05',
+      email: 'hospede05@email.com',
+      phone: '+55 19 99121-4456',
+    },
+    notes: 'Reserva pendente de confirmacao de pagamento.',
+    checkedInAt: null,
+    checkedOutAt: null,
   },
 ];
 
@@ -188,12 +232,58 @@ export async function createExpense(input: Omit<Expense, 'id'>): Promise<Expense
   return simulateDelay(nextExpense);
 }
 
+export async function getCheckInOutBoard(referenceDate = new Date()) {
+  const date = referenceDate.toISOString().slice(0, 10);
+
+  const arrivals = reservations.filter(
+    (reservation) => reservation.checkIn === date && reservation.status !== 'cancelled' && reservation.status !== 'blocked',
+  );
+
+  const departures = reservations.filter(
+    (reservation) => reservation.checkOut === date && reservation.status !== 'cancelled' && reservation.status !== 'blocked',
+  );
+
+  return simulateDelay({
+    date,
+    arrivals,
+    departures,
+  });
+}
+
+export async function registerCheckIn(reservationId: string) {
+  const target = reservations.find((reservation) => reservation.id === reservationId);
+
+  if (!target) {
+    throw new Error('Reserva nao encontrada.');
+  }
+
+  if (target.status === 'cancelled' || target.status === 'blocked') {
+    throw new Error('Esta reserva nao pode receber check-in.');
+  }
+
+  target.checkedInAt = new Date().toISOString();
+
+  return simulateDelay(structuredClone(target));
+}
+
+export async function registerCheckOut(reservationId: string) {
+  const target = reservations.find((reservation) => reservation.id === reservationId);
+
+  if (!target) {
+    throw new Error('Reserva nao encontrada.');
+  }
+
+  if (!target.checkedInAt) {
+    throw new Error('Nao e possivel fazer check-out antes do check-in.');
+  }
+
+  target.checkedOutAt = new Date().toISOString();
+
+  return simulateDelay(structuredClone(target));
+}
+
 export async function getUnifiedInventory() {
-  const [roomList, reservationList, expenseList] = await Promise.all([
-    getRooms(),
-    getReservations(),
-    getExpenses(),
-  ]);
+  const [roomList, reservationList, expenseList] = await Promise.all([getRooms(), getReservations(), getExpenses()]);
 
   return {
     generatedAt: new Date().toISOString(),
