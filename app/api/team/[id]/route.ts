@@ -1,72 +1,157 @@
-import { NextResponse } from 'next/server';
-import { assertPermission, getSessionUserFromRequest } from '@/lib/auth';
-import { removeTeamMember, setTeamMemberLoginStatus, updateTeamMember } from '@/lib/team-store';
-import type { TeamPermission, TeamRole } from '@/types/team';
+import { NextResponse } from "next/server";
+import { assertPermission, getSessionUserFromRequest } from "@/lib/auth";
+import { getDatabase } from "@/lib/database";
+import {
+  updateTeamMemberSchema,
+  type UpdateTeamMemberInput,
+} from "@/lib/validations";
+import type { TeamPermission, TeamRole } from "@/types/team";
 
-const allowedPermissions: TeamPermission[] = ['calendar', 'finance', 'checkin', 'team'];
+const allowedPermissions: TeamPermission[] = [
+  "calendar",
+  "finance",
+  "checkin",
+  "team",
+];
 
 function sanitizePermissions(permissions: TeamPermission[] | undefined) {
   if (!permissions?.length) {
     return [];
   }
 
-  return permissions.filter((permission) => allowedPermissions.includes(permission));
+  return permissions.filter((permission) =>
+    allowedPermissions.includes(permission),
+  );
 }
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+const allowedPermissions: TeamPermission[] = [
+  "calendar",
+  "finance",
+  "checkin",
+  "team",
+];
+
+function sanitizePermissions(permissions: TeamPermission[] | undefined) {
+  if (!permissions?.length) {
+    return [];
+  }
+
+  return permissions.filter((permission) =>
+    allowedPermissions.includes(permission),
+  );
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const user = getSessionUserFromRequest(request);
-  const unauthorizedResponse = assertPermission(user, 'team');
+  const unauthorizedResponse = assertPermission(user, "team");
 
   if (unauthorizedResponse) {
     return unauthorizedResponse;
   }
 
   const { id } = await params;
-  const body = (await request.json()) as {
-    name?: string;
-    role?: TeamRole;
-    permissions?: TeamPermission[];
-    loginEnabled?: boolean;
-  };
+  const body = (await request.json()) as UpdateTeamMemberInput;
 
-  if (typeof body.loginEnabled === 'boolean' && Object.keys(body).length === 1) {
-    const member = setTeamMemberLoginStatus(id, body.loginEnabled);
+  const validation = updateTeamMemberSchema.safeParse(body);
+  if (!validation.success) {
+    return NextResponse.json(
+      {
+        message: validation.error.errors[0]?.message || "Dados inválidos.",
+      },
+      { status: 400 },
+    );
+  }
 
-    if (!member) {
-      return NextResponse.json({ message: 'Nao foi possivel alterar o status deste login.' }, { status: 400 });
+  const validatedData = validation.data;
+
+  try {
+    const db = await getDatabase();
+    const memberId = parseInt(id);
+
+    if (isNaN(memberId)) {
+      return NextResponse.json({ message: "ID inválido." }, { status: 400 });
     }
 
-    return NextResponse.json({ member });
+    const member = await db.User.findByPk(memberId);
+    if (!member) {
+      return NextResponse.json(
+        { message: "Pessoa da equipe nao encontrada." },
+        { status: 404 },
+      );
+    }
+
+    const updateData: any = {};
+    if (validatedData.name !== undefined) updateData.name = validatedData.name;
+    if (validatedData.role !== undefined) updateData.role = validatedData.role;
+    if (validatedData.permissions !== undefined)
+      updateData.permissions = JSON.stringify(validatedData.permissions);
+    if (validatedData.loginEnabled !== undefined)
+      updateData.isActive = validatedData.loginEnabled;
+
+    await member.update(updateData);
+
+    // Refresh member data
+    await member.reload();
+
+    return NextResponse.json({
+      member: {
+        id: member.id,
+        name: member.name,
+        email: member.email,
+        role: member.role,
+        permissions: JSON.parse(member.permissions),
+        loginEnabled: member.isActive,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating team member:", error);
+    return NextResponse.json(
+      { message: "Erro ao atualizar membro da equipe." },
+      { status: 500 },
+    );
   }
-
-  const member = updateTeamMember(id, {
-    name: body.name,
-    role: body.role,
-    permissions: sanitizePermissions(body.permissions),
-    loginEnabled: body.loginEnabled,
-  });
-
-  if (!member) {
-    return NextResponse.json({ message: 'Pessoa da equipe nao encontrada.' }, { status: 404 });
-  }
-
-  return NextResponse.json({ member });
 }
 
-export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const user = getSessionUserFromRequest(request);
-  const unauthorizedResponse = assertPermission(user, 'team');
+  const unauthorizedResponse = assertPermission(user, "team");
 
   if (unauthorizedResponse) {
     return unauthorizedResponse;
   }
 
   const { id } = await params;
-  const removed = removeTeamMember(id);
 
-  if (!removed) {
-    return NextResponse.json({ message: 'Nao foi possivel remover esta conta.' }, { status: 400 });
+  try {
+    const db = await getDatabase();
+    const memberId = parseInt(id);
+
+    if (isNaN(memberId)) {
+      return NextResponse.json({ message: "ID inválido." }, { status: 400 });
+    }
+
+    const member = await db.User.findByPk(memberId);
+    if (!member) {
+      return NextResponse.json(
+        { message: "Pessoa da equipe nao encontrada." },
+        { status: 404 },
+      );
+    }
+
+    await member.destroy();
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Error deleting team member:", error);
+    return NextResponse.json(
+      { message: "Erro ao remover membro da equipe." },
+      { status: 500 },
+    );
   }
-
-  return NextResponse.json({ ok: true });
 }

@@ -1,4 +1,4 @@
-// File: C:\Users\drkvi\Documents\Template-SaaS-Pousada\app\dashboard\finance\page.tsx
+// File: C:\Users\vinic\OneDrive\Documentos\Vs Code\Template-SaaS-Pousada\app\dashboard\finance\page.tsx
 import * as entry from '../../../../../app/dashboard/finance/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

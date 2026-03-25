@@ -33,12 +33,13 @@ declare namespace __next_route_internal_types__ {
     | `/api/auth/login`
     | `/api/auth/logout`
     | `/api/auth/session`
-    | `/api/team`
     | `/api/checkin`
-    | `/dashboard/calendar`
+    | `/api/config`
+    | `/api/team`
     | `/dashboard/checkin`
-    | `/dashboard/finance`
+    | `/dashboard/calendar`
     | `/dashboard/team`
+    | `/dashboard/finance`
   type DynamicRoutes<T extends string = string> = 
     | `/api/team/${SafeSlug<T>}`
 

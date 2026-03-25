@@ -1,25 +1,49 @@
-import { CalendarDays, ConciergeBell, ShieldCheck } from 'lucide-react';
-import { LoginForm } from '@/components/login-form';
+"use client";
+
+import { CalendarDays, ConciergeBell, ShieldCheck } from "lucide-react";
+import { LoginForm } from "@/components/login-form";
+import { useEffect, useState } from "react";
 
 const highlights = [
   {
     icon: CalendarDays,
-    title: 'Calendário centralizado',
-    description: 'Visualize em um só lugar as entradas, saídas e períodos indisponíveis da sua hospedagem.',
+    title: "Calendário centralizado",
+    description:
+      "Visualize em um só lugar as entradas, saídas e períodos indisponíveis da sua hospedagem.",
   },
   {
     icon: ShieldCheck,
-    title: 'Mais segurança na operação',
-    description: 'Acompanhe a ocupação com clareza e reduza conflitos entre reservas e bloqueios.',
+    title: "Mais segurança na operação",
+    description:
+      "Acompanhe a ocupação com clareza e reduza conflitos entre reservas e bloqueios.",
   },
   {
     icon: ConciergeBell,
-    title: 'Rotina mais ágil',
-    description: 'Ganhe tempo para cuidar da experiência dos hóspedes com uma gestão simples e elegante.',
+    title: "Rotina mais ágil",
+    description:
+      "Ganhe tempo para cuidar da experiência dos hóspedes com uma gestão simples e elegante.",
   },
 ];
 
 export default function LoginPage() {
+  const [appName, setAppName] = useState("Pousada Sancho");
+
+  useEffect(() => {
+    async function loadConfig() {
+      try {
+        const response = await fetch("/api/config");
+        if (response.ok) {
+          const config = await response.json();
+          setAppName(config.appName);
+        }
+      } catch (error) {
+        console.warn("Could not load config:", error);
+      }
+    }
+
+    loadConfig();
+  }, []);
+
   return (
     <main className="mx-auto flex min-h-screen max-w-7xl flex-col justify-center gap-10 px-6 py-10 lg:flex-row lg:items-center lg:px-10">
       <section className="max-w-xl space-y-8">
@@ -28,19 +52,27 @@ export default function LoginPage() {
             Gestão exclusiva para hotelaria
           </span>
           <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-            Organize as reservas da [Nome da Sua Pousada] com mais clareza e tranquilidade.
+            Organize as reservas da {appName} com mais clareza e tranquilidade.
           </h1>
           <p className="max-w-lg text-base leading-7 text-slate-300">
-            Acompanhe disponibilidade, bloqueios e movimentações do calendário em uma experiência pensada para o dia a dia da sua operação.
+            Acompanhe disponibilidade, bloqueios e movimentações do calendário
+            em uma experiência pensada para o dia a dia da sua operação.
           </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
           {highlights.map((highlight) => (
-            <div key={highlight.title} className="glass-panel rounded-[24px] p-4">
+            <div
+              key={highlight.title}
+              className="glass-panel rounded-[24px] p-4"
+            >
               <highlight.icon className="h-5 w-5 text-sky-300" />
-              <h2 className="mt-4 text-sm font-semibold text-white">{highlight.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-300">{highlight.description}</p>
+              <h2 className="mt-4 text-sm font-semibold text-white">
+                {highlight.title}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                {highlight.description}
+              </p>
             </div>
           ))}
         </div>

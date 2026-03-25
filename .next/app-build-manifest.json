@@ -11,6 +11,11 @@
       "static/chunks/main-app.js",
       "static/chunks/app/page.js"
     ],
+    "/api/config/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/config/route.js"
+    ],
     "/api/auth/login/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -31,11 +36,6 @@
       "static/chunks/main-app.js",
       "static/chunks/app/api/auth/session/route.js"
     ],
-    "/dashboard/finance/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/finance/page.js"
-    ],
     "/dashboard/checkin/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -46,15 +46,10 @@
       "static/chunks/main-app.js",
       "static/chunks/app/api/checkin/route.js"
     ],
-    "/dashboard/team/page": [
+    "/dashboard/finance/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/team/page.js"
-    ],
-    "/api/team/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/team/route.js"
+      "static/chunks/app/dashboard/finance/page.js"
     ]
   }
 }

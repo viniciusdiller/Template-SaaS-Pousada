@@ -1,19 +1,33 @@
-import { DataTypes, Model, Optional, Sequelize } from 'sequelize';
+import { DataTypes, Model, Optional, Sequelize } from "sequelize";
 
 export type UserAttributes = {
   id: number;
+  name: string;
   email: string;
   passwordHash: string;
+  role: "owner" | "staff";
+  permissions: string; // JSON string of permissions array
+  isActive: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 };
 
-export type UserCreationAttributes = Optional<UserAttributes, 'id' | 'createdAt' | 'updatedAt'>;
+export type UserCreationAttributes = Optional<
+  UserAttributes,
+  "id" | "createdAt" | "updatedAt" | "isActive"
+>;
 
-export class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
+export class User
+  extends Model<UserAttributes, UserCreationAttributes>
+  implements UserAttributes
+{
   declare id: number;
+  declare name: string;
   declare email: string;
   declare passwordHash: string;
+  declare role: "owner" | "staff";
+  declare permissions: string;
+  declare isActive: boolean;
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 
@@ -24,6 +38,10 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
           type: DataTypes.INTEGER.UNSIGNED,
           autoIncrement: true,
           primaryKey: true,
+        },
+        name: {
+          type: DataTypes.STRING(100),
+          allowNull: false,
         },
         email: {
           type: DataTypes.STRING(160),
@@ -36,13 +54,29 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
         passwordHash: {
           type: DataTypes.STRING(255),
           allowNull: false,
-          field: 'password_hash',
+          field: "password_hash",
+        },
+        role: {
+          type: DataTypes.ENUM("owner", "staff"),
+          allowNull: false,
+          defaultValue: "staff",
+        },
+        permissions: {
+          type: DataTypes.TEXT,
+          allowNull: false,
+          defaultValue: "[]",
+        },
+        isActive: {
+          type: DataTypes.BOOLEAN,
+          allowNull: false,
+          defaultValue: true,
+          field: "is_active",
         },
       },
       {
         sequelize,
-        tableName: 'users',
-        modelName: 'User',
+        tableName: "users",
+        modelName: "User",
       },
     );
   }

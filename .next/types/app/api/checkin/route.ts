@@ -1,4 +1,4 @@
-// File: C:\Users\drkvi\Documents\Template-SaaS-Pousada\app\api\checkin\route.ts
+// File: C:\Users\vinic\OneDrive\Documentos\Vs Code\Template-SaaS-Pousada\app\api\checkin\route.ts
 import * as entry from '../../../../../app/api/checkin/route.js'
 import type { NextRequest } from 'next/server.js'
 

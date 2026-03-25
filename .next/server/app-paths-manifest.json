@@ -1,6 +1,7 @@
 {
+  "/api/checkin/route": "app/api/checkin/route.js",
   "/page": "app/page.js",
-  "/dashboard/checkin/page": "app/dashboard/checkin/page.js",
+  "/dashboard/calendar/page": "app/dashboard/calendar/page.js",
   "/dashboard/finance/page": "app/dashboard/finance/page.js",
-  "/dashboard/team/page": "app/dashboard/team/page.js"
+  "/dashboard/checkin/page": "app/dashboard/checkin/page.js"
 }
