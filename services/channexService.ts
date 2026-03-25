@@ -23,6 +23,32 @@ function normalizeDateOnly(value: unknown): string {
   return "";
 }
 
+function normalizeDateTime(value: unknown): string | null {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+
+  return null;
+}
+
+function normalizeAmount(value: unknown): number {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
 export async function getRooms(): Promise<Room[]> {
   const db = await getDatabase();
   const roomRecords = await db.Room.findAll({ order: [["name", "ASC"]] });
@@ -51,7 +77,7 @@ export async function getReservations(): Promise<Reservation[]> {
     status: reservation.status,
     otaSource: reservation.otaSource,
     channelReference: reservation.channexReservationId,
-    amount: reservation.amount || 0,
+    amount: normalizeAmount(reservation.amount),
     currency: reservation.currency || "BRL",
     customer: {
       name: reservation.guestName,
@@ -59,8 +85,8 @@ export async function getReservations(): Promise<Reservation[]> {
       phone: reservation.guestPhone || "",
     },
     notes: reservation.notes || "",
-    checkedInAt: reservation.checkedInAt?.toISOString() || null,
-    checkedOutAt: reservation.checkedOutAt?.toISOString() || null,
+    checkedInAt: normalizeDateTime(reservation.checkedInAt),
+    checkedOutAt: normalizeDateTime(reservation.checkedOutAt),
   }));
 }
 
@@ -98,21 +124,52 @@ export async function updateReservation(
 }
 
 export async function getExpenses(): Promise<Expense[]> {
-  return [];
-}
+  const db = await getDatabase();
+  const records = await db.Expense.findAll({ order: [["createdAt", "DESC"]] });
 
-let expenses: Expense[] = [];
+  return records.map((expense) => ({
+    id: expense.id.toString(),
+    description: expense.description,
+    amount: normalizeAmount(expense.amount),
+    checkIn: normalizeDateTime(expense.checkIn) || "",
+    checkOut: normalizeDateTime(expense.checkOut) || "",
+    roomId: expense.roomId || "",
+    category: expense.category,
+    supplier: expense.supplier || undefined,
+    paymentMethod: expense.paymentMethod || undefined,
+    notes: expense.notes || undefined,
+  }));
+}
 
 export async function createExpense(
   input: Omit<Expense, "id">,
 ): Promise<Expense> {
-  const nextExpense: Expense = {
-    id: `exp_${Date.now()}`,
-    ...input,
-  };
+  const db = await getDatabase();
 
-  expenses = [nextExpense, ...expenses];
-  return nextExpense;
+  const created = await db.Expense.create({
+    description: input.description,
+    amount: normalizeAmount(input.amount),
+    checkIn: new Date(input.checkIn),
+    checkOut: new Date(input.checkOut),
+    roomId: input.roomId || null,
+    category: input.category,
+    supplier: input.supplier || null,
+    paymentMethod: input.paymentMethod || null,
+    notes: input.notes || null,
+  });
+
+  return {
+    id: created.id.toString(),
+    description: created.description,
+    amount: normalizeAmount(created.amount),
+    checkIn: normalizeDateTime(created.checkIn) || input.checkIn,
+    checkOut: normalizeDateTime(created.checkOut) || input.checkOut,
+    roomId: created.roomId || "",
+    category: created.category,
+    supplier: created.supplier || undefined,
+    paymentMethod: created.paymentMethod || undefined,
+    notes: created.notes || undefined,
+  };
 }
 
 export async function getCheckInOutBoard(referenceDate = new Date()) {
@@ -135,7 +192,7 @@ export async function getCheckInOutBoard(referenceDate = new Date()) {
     status: reservation.status,
     otaSource: reservation.otaSource,
     channelReference: reservation.channexReservationId,
-    amount: reservation.amount || 0,
+    amount: normalizeAmount(reservation.amount),
     currency: reservation.currency || "BRL",
     customer: {
       name: reservation.guestName,
@@ -143,8 +200,8 @@ export async function getCheckInOutBoard(referenceDate = new Date()) {
       phone: reservation.guestPhone || "",
     },
     notes: reservation.notes || "",
-    checkedInAt: reservation.checkedInAt?.toISOString() || null,
-    checkedOutAt: reservation.checkedOutAt?.toISOString() || null,
+    checkedInAt: normalizeDateTime(reservation.checkedInAt),
+    checkedOutAt: normalizeDateTime(reservation.checkedOutAt),
   }));
 
   const arrivals = reservations.filter((reservation) => reservation.checkIn === date);

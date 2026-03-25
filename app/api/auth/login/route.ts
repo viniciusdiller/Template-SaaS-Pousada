@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     if (!validation.success) {
       return NextResponse.json(
         {
-          message: validation.error.errors[0]?.message || "Dados inválidos.",
+          message: validation.error.issues[0]?.message || "Dados inválidos.",
         },
         { status: 400 },
       );
@@ -29,7 +29,9 @@ export async function POST(request: Request) {
     console.log("🔐 Auth result:", authResult.ok ? "SUCCESS" : "FAILED");
 
     if (!authResult.ok) {
-      if (authResult.reason === "login_disabled") {
+      const reason = authResult.reason;
+
+      if (reason === "login_disabled") {
         return NextResponse.json(
           { message: "Este login da equipe esta desativado." },
           { status: 403 },

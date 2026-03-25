@@ -1,11 +1,12 @@
 import "mysql2";
 import mysql from "mysql2";
 import { Sequelize } from "sequelize";
+import { Expense } from "@/models/Expense";
 import { Reservation } from "@/models/Reservation";
 import { Room } from "@/models/Room";
 import { User } from "@/models/User";
 
-export { Reservation, Room, User };
+export { Expense, Reservation, Room, User };
 
 export function createSequelizeClient() {
   return new Sequelize({
@@ -24,6 +25,7 @@ export function initializeModels(sequelize: Sequelize) {
   User.initModel(sequelize);
   Room.initModel(sequelize);
   Reservation.initModel(sequelize);
+  Expense.initModel(sequelize);
 
   Room.hasMany(Reservation, {
     foreignKey: "roomId",
@@ -40,6 +42,7 @@ export function initializeModels(sequelize: Sequelize) {
     User,
     Room,
     Reservation,
+    Expense,
   };
 }
 
