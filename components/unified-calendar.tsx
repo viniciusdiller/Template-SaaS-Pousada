@@ -164,22 +164,23 @@ export function UnifiedCalendar() {
       setLoading(true);
       try {
         const [roomResponse, reservationResponse] = await Promise.all([
-          fetch('/api/rooms'),
-          fetch('/api/reservations'),
+          fetch("/api/rooms"),
+          fetch("/api/reservations"),
         ]);
 
         if (!roomResponse.ok || !reservationResponse.ok) {
-          throw new Error('Failed to load data');
+          throw new Error("Failed to load data");
         }
 
-        const roomList = await roomResponse.json() as Room[];
-        const reservationList = await reservationResponse.json() as Reservation[];
+        const roomList = (await roomResponse.json()) as Room[];
+        const reservationList =
+          (await reservationResponse.json()) as Reservation[];
 
         setRooms(roomList);
         setReservations(reservationList);
       } catch (error) {
-        console.error('Error loading calendar data:', error);
-        showToast('Erro ao carregar dados do calendário');
+        console.error("Error loading calendar data:", error);
+        showToast("Erro ao carregar dados do calendário");
       } finally {
         setLoading(false);
       }
@@ -415,19 +416,19 @@ export function UnifiedCalendar() {
         notes: draft.notes,
       };
 
-      const response = await fetch('/api/reservations', {
-        method: 'PUT',
+      const response = await fetch("/api/reservations", {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(updatedReservation),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update reservation');
+        throw new Error("Failed to update reservation");
       }
 
-      const savedReservation = await response.json() as Reservation;
+      const savedReservation = (await response.json()) as Reservation;
       setReservations((current) =>
         current.map((reservation) =>
           reservation.id === savedReservation.id

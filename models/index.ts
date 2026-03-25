@@ -212,7 +212,6 @@ export function initializeModels(sequelize: Sequelize) {
     as: "room",
   });
 
-
   return {
     sequelize,
     User,

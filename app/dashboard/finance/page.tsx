@@ -12,7 +12,12 @@ import {
 } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { formatCurrencyInput, parseCurrencyInput } from "@/lib/utils";
-import type { Expense, ExpenseCategory, Reservation, Room } from "@/types/channex";
+import type {
+  Expense,
+  ExpenseCategory,
+  Reservation,
+  Room,
+} from "@/types/channex";
 
 const expenseCategories: ExpenseCategory[] = [
   "limpeza",
@@ -92,25 +97,31 @@ export default function FinancePage() {
     async function loadData() {
       setLoading(true);
       try {
-        const [reservationResponse, expenseResponse, roomResponse] = await Promise.all([
-          fetch('/api/reservations'),
-          fetch('/api/expenses'),
-          fetch('/api/rooms'),
-        ]);
+        const [reservationResponse, expenseResponse, roomResponse] =
+          await Promise.all([
+            fetch("/api/reservations"),
+            fetch("/api/expenses"),
+            fetch("/api/rooms"),
+          ]);
 
-        if (!reservationResponse.ok || !expenseResponse.ok || !roomResponse.ok) {
-          throw new Error('Failed to load data');
+        if (
+          !reservationResponse.ok ||
+          !expenseResponse.ok ||
+          !roomResponse.ok
+        ) {
+          throw new Error("Failed to load data");
         }
 
-        const reservationList = await reservationResponse.json() as Reservation[];
-        const expenseList = await expenseResponse.json() as Expense[];
-        const roomList = await roomResponse.json() as Room[];
+        const reservationList =
+          (await reservationResponse.json()) as Reservation[];
+        const expenseList = (await expenseResponse.json()) as Expense[];
+        const roomList = (await roomResponse.json()) as Room[];
 
         setReservations(reservationList);
         setExpenses(expenseList);
         setRooms(roomList);
       } catch (error) {
-        console.error('Error loading finance data:', error);
+        console.error("Error loading finance data:", error);
       } finally {
         setLoading(false);
       }
@@ -141,7 +152,9 @@ export default function FinancePage() {
     setError(null);
 
     if (!form.description || !form.amount || !form.checkIn || !form.checkOut) {
-      setError("Preencha descrição, valor, check-in e check-out para continuar.");
+      setError(
+        "Preencha descrição, valor, check-in e check-out para continuar.",
+      );
       return;
     }
 
@@ -155,10 +168,10 @@ export default function FinancePage() {
     setIsSaving(true);
 
     try {
-      const response = await fetch('/api/expenses', {
-        method: 'POST',
+      const response = await fetch("/api/expenses", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           description: form.description,
@@ -174,10 +187,10 @@ export default function FinancePage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create expense');
+        throw new Error("Failed to create expense");
       }
 
-      const nextExpense = await response.json() as Expense;
+      const nextExpense = (await response.json()) as Expense;
 
       setExpenses((current) => [nextExpense, ...current]);
       setForm(initialExpenseForm);
@@ -323,10 +336,10 @@ export default function FinancePage() {
                           </span>
                         </td>
                         <td className="px-5 py-4 text-slate-300">
-                          {new Date(expense.checkIn).toLocaleString('pt-BR')}
+                          {new Date(expense.checkIn).toLocaleString("pt-BR")}
                         </td>
                         <td className="px-5 py-4 text-slate-300">
-                          {new Date(expense.checkOut).toLocaleString('pt-BR')}
+                          {new Date(expense.checkOut).toLocaleString("pt-BR")}
                         </td>
                         <td className="px-5 py-4 text-right font-semibold text-rose-300">
                           {formatCurrency(expense.amount)}
@@ -434,41 +447,41 @@ export default function FinancePage() {
                     />
                   </label>
 
-                <div className="grid gap-5 md:grid-cols-2">
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-200">
-                      Check-in
-                    </span>
-                    <input
-                      type="datetime-local"
-                      value={form.checkIn}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          checkIn: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none"
-                    />
-                  </label>
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-slate-200">
+                        Check-in
+                      </span>
+                      <input
+                        type="datetime-local"
+                        value={form.checkIn}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            checkIn: event.target.value,
+                          }))
+                        }
+                        className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none"
+                      />
+                    </label>
 
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-200">
-                      Check-out
-                    </span>
-                    <input
-                      type="datetime-local"
-                      value={form.checkOut}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          checkOut: event.target.value,
-                        }))
-                      }
-                      className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none"
-                    />
-                  </label>
-                </div>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-slate-200">
+                        Check-out
+                      </span>
+                      <input
+                        type="datetime-local"
+                        value={form.checkOut}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            checkOut: event.target.value,
+                          }))
+                        }
+                        className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none"
+                      />
+                    </label>
+                  </div>
                 </div>
 
                 <label className="block">
