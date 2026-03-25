@@ -1,56 +1,87 @@
-'use client';
+"use client";
 
-import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowDownCircle, ArrowUpCircle, Landmark, Plus, ReceiptText, WalletCards, X } from 'lucide-react';
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
-import { formatCurrencyInput, parseCurrencyInput } from '@/lib/utils';
-import { createExpense, getExpenses, getReservations } from '@/services/channexService';
-import type { Expense, ExpenseCategory, Reservation } from '@/types/channex';
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  ArrowDownCircle,
+  ArrowUpCircle,
+  Landmark,
+  Plus,
+  ReceiptText,
+  WalletCards,
+  X,
+} from "lucide-react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { formatCurrencyInput, parseCurrencyInput } from "@/lib/utils";
+import type { Expense, ExpenseCategory, Reservation, Room } from "@/types/channex";
 
-const expenseCategories: ExpenseCategory[] = ['limpeza', 'manutenção', 'impostos', 'insumos', 'comissões', 'outros'];
+const expenseCategories: ExpenseCategory[] = [
+  "limpeza",
+  "manutenção",
+  "impostos",
+  "insumos",
+  "comissões",
+  "outros",
+];
 
 const categoryLabel: Record<ExpenseCategory, string> = {
-  limpeza: 'Limpeza',
-  manutenção: 'Manutenção',
-  impostos: 'Impostos',
-  insumos: 'Insumos',
-  comissões: 'Comissões',
-  outros: 'Outros',
+  limpeza: "Limpeza",
+  manutenção: "Manutenção",
+  impostos: "Impostos",
+  insumos: "Insumos",
+  comissões: "Comissões",
+  outros: "Outros",
 };
 
 type ExpenseForm = {
   description: string;
   amount: string;
   category: ExpenseCategory;
-  date: string;
+  checkIn: string;
+  checkOut: string;
+  roomId: string;
+  supplier: string;
+  paymentMethod:
+    | "cash"
+    | "credit_card"
+    | "debit_card"
+    | "bank_transfer"
+    | "pix"
+    | "check";
+  notes: string;
 };
 
 const initialExpenseForm: ExpenseForm = {
-  description: '',
-  amount: '',
-  category: 'limpeza',
-  date: '2026-03-23',
+  description: "",
+  amount: "",
+  category: "limpeza",
+  checkIn: "",
+  checkOut: "",
+  roomId: "",
+  supplier: "",
+  paymentMethod: "cash",
+  notes: "",
 };
 
-function formatCurrency(value: number, currency = 'BRL') {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
+function formatCurrency(value: number, currency = "BRL") {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
     currency,
     maximumFractionDigits: 2,
   }).format(value);
 }
 
 function formatLongDate(date: string) {
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
   }).format(new Date(`${date}T00:00:00`));
 }
 
 export default function FinancePage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState<ExpenseForm>(initialExpenseForm);
@@ -60,10 +91,29 @@ export default function FinancePage() {
   useEffect(() => {
     async function loadData() {
       setLoading(true);
-      const [reservationList, expenseList] = await Promise.all([getReservations(), getExpenses()]);
-      setReservations(reservationList);
-      setExpenses(expenseList);
-      setLoading(false);
+      try {
+        const [reservationResponse, expenseResponse, roomResponse] = await Promise.all([
+          fetch('/api/reservations'),
+          fetch('/api/expenses'),
+          fetch('/api/rooms'),
+        ]);
+
+        if (!reservationResponse.ok || !expenseResponse.ok || !roomResponse.ok) {
+          throw new Error('Failed to load data');
+        }
+
+        const reservationList = await reservationResponse.json() as Reservation[];
+        const expenseList = await expenseResponse.json() as Expense[];
+        const roomList = await roomResponse.json() as Room[];
+
+        setReservations(reservationList);
+        setExpenses(expenseList);
+        setRooms(roomList);
+      } catch (error) {
+        console.error('Error loading finance data:', error);
+      } finally {
+        setLoading(false);
+      }
     }
 
     void loadData();
@@ -72,38 +122,62 @@ export default function FinancePage() {
   const grossRevenue = useMemo(
     () =>
       reservations
-        .filter((reservation) => reservation.status !== 'cancelled' && reservation.status !== 'blocked')
+        .filter(
+          (reservation) =>
+            reservation.status !== "cancelled" &&
+            reservation.status !== "blocked",
+        )
         .reduce((total, reservation) => total + reservation.amount, 0),
     [reservations],
   );
-  const totalExpenses = useMemo(() => expenses.reduce((total, expense) => total + expense.amount, 0), [expenses]);
+  const totalExpenses = useMemo(
+    () => expenses.reduce((total, expense) => total + expense.amount, 0),
+    [expenses],
+  );
   const netProfit = grossRevenue - totalExpenses;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
 
-    if (!form.description || !form.amount || !form.date) {
-      setError('Preencha descrição, valor e data para continuar.');
+    if (!form.description || !form.amount || !form.checkIn || !form.checkOut) {
+      setError("Preencha descrição, valor, check-in e check-out para continuar.");
       return;
     }
 
     const amount = parseCurrencyInput(form.amount);
 
     if (Number.isNaN(amount) || amount <= 0) {
-      setError('Informe um valor válido maior do que zero.');
+      setError("Informe um valor válido maior do que zero.");
       return;
     }
 
     setIsSaving(true);
 
     try {
-      const nextExpense = await createExpense({
-        description: form.description,
-        amount,
-        category: form.category,
-        date: form.date,
+      const response = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          description: form.description,
+          amount,
+          category: form.category,
+          checkIn: form.checkIn,
+          checkOut: form.checkOut,
+          roomId: form.roomId,
+          supplier: form.supplier,
+          paymentMethod: form.paymentMethod,
+          notes: form.notes,
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to create expense');
+      }
+
+      const nextExpense = await response.json() as Expense;
 
       setExpenses((current) => [nextExpense, ...current]);
       setForm(initialExpenseForm);
@@ -115,25 +189,26 @@ export default function FinancePage() {
 
   const cards = [
     {
-      title: 'Faturamento Bruto',
+      title: "Faturamento Bruto",
       value: formatCurrency(grossRevenue),
-      description: 'Receita consolidada de todas as reservas ativas carregadas.',
+      description:
+        "Receita consolidada de todas as reservas ativas carregadas.",
       icon: ArrowUpCircle,
-      tone: 'text-emerald-300 bg-emerald-400/10 border-emerald-400/20',
+      tone: "text-emerald-300 bg-emerald-400/10 border-emerald-400/20",
     },
     {
-      title: 'Total de Despesas',
+      title: "Total de Despesas",
       value: formatCurrency(totalExpenses),
-      description: 'Despesas operacionais registradas no período atual.',
+      description: "Despesas operacionais registradas no período atual.",
       icon: ArrowDownCircle,
-      tone: 'text-rose-300 bg-rose-400/10 border-rose-400/20',
+      tone: "text-rose-300 bg-rose-400/10 border-rose-400/20",
     },
     {
-      title: 'Lucro Líquido',
+      title: "Lucro Líquido",
       value: formatCurrency(netProfit),
-      description: 'Resultado líquido após dedução de custos e comissões.',
+      description: "Resultado líquido após dedução de custos e comissões.",
       icon: WalletCards,
-      tone: 'text-sky-300 bg-sky-400/10 border-sky-400/20',
+      tone: "text-sky-300 bg-sky-400/10 border-sky-400/20",
     },
   ];
 
@@ -143,10 +218,15 @@ export default function FinancePage() {
         <section className="rounded-[28px] border border-white/10 bg-slate-900/85 p-6 shadow-2xl shadow-slate-950/20">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-300">Aba financeira</p>
-              <h2 className="mt-3 text-3xl font-semibold text-white">Saúde financeira da operação</h2>
+              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-300">
+                Aba financeira
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold text-white">
+                Saúde financeira da operação
+              </h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
-                Monitore a receita total das reservas, acompanhe custos recorrentes e registre novas despesas sem sair do painel.
+                Monitore a receita total das reservas, acompanhe custos
+                recorrentes e registre novas despesas sem sair do painel.
               </p>
             </div>
             <button
@@ -170,8 +250,12 @@ export default function FinancePage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-sm text-slate-400">{card.title}</p>
-                    <p className="mt-4 text-3xl font-semibold text-white">{card.value}</p>
-                    <p className="mt-3 text-sm leading-6 text-slate-400">{card.description}</p>
+                    <p className="mt-4 text-3xl font-semibold text-white">
+                      {card.value}
+                    </p>
+                    <p className="mt-3 text-sm leading-6 text-slate-400">
+                      {card.description}
+                    </p>
                   </div>
                   <div className={`rounded-2xl border p-3 ${card.tone}`}>
                     <Icon className="h-5 w-5" />
@@ -189,8 +273,13 @@ export default function FinancePage() {
                 <ReceiptText className="h-4 w-4 text-sky-300" />
                 Histórico de despesas
               </div>
-              <h3 className="mt-4 text-2xl font-semibold text-white">Custos registrados</h3>
-              <p className="mt-2 text-sm text-slate-400">Atualizado a partir do mock service preparado para futura integração via Sequelize.</p>
+              <h3 className="mt-4 text-2xl font-semibold text-white">
+                Custos registrados
+              </h3>
+              <p className="mt-2 text-sm text-slate-400">
+                Atualizado a partir do mock service preparado para futura
+                integração via Sequelize.
+              </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-slate-300">
               {expenses.length} lançamentos registrados
@@ -204,27 +293,41 @@ export default function FinancePage() {
                   <tr>
                     <th className="px-5 py-4 font-medium">Descrição</th>
                     <th className="px-5 py-4 font-medium">Categoria</th>
-                    <th className="px-5 py-4 font-medium">Data</th>
+                    <th className="px-5 py-4 font-medium">Check-in</th>
+                    <th className="px-5 py-4 font-medium">Check-out</th>
                     <th className="px-5 py-4 text-right font-medium">Valor</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/10 bg-slate-900/50">
                   {loading ? (
                     <tr>
-                      <td colSpan={4} className="px-5 py-10 text-center text-slate-400">
+                      <td
+                        colSpan={5}
+                        className="px-5 py-10 text-center text-slate-400"
+                      >
                         Carregando lançamentos financeiros...
                       </td>
                     </tr>
                   ) : expenses.length ? (
                     expenses.map((expense) => (
-                      <tr key={expense.id} className="transition-colors hover:bg-white/[0.03]">
-                        <td className="px-5 py-4 text-white">{expense.description}</td>
+                      <tr
+                        key={expense.id}
+                        className="transition-colors hover:bg-white/[0.03]"
+                      >
+                        <td className="px-5 py-4 text-white">
+                          {expense.description}
+                        </td>
                         <td className="px-5 py-4">
                           <span className="rounded-full border border-white/10 bg-slate-950/50 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-slate-300">
                             {categoryLabel[expense.category]}
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-slate-300">{formatLongDate(expense.date)}</td>
+                        <td className="px-5 py-4 text-slate-300">
+                          {new Date(expense.checkIn).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="px-5 py-4 text-slate-300">
+                          {new Date(expense.checkOut).toLocaleString('pt-BR')}
+                        </td>
                         <td className="px-5 py-4 text-right font-semibold text-rose-300">
                           {formatCurrency(expense.amount)}
                         </td>
@@ -232,7 +335,10 @@ export default function FinancePage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={4} className="px-5 py-10 text-center text-slate-400">
+                      <td
+                        colSpan={5}
+                        className="px-5 py-10 text-center text-slate-400"
+                      >
                         Ainda não existem despesas lançadas.
                       </td>
                     </tr>
@@ -245,7 +351,9 @@ export default function FinancePage() {
           <div className="mt-5 flex flex-wrap gap-3 text-sm text-slate-400">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/50 px-3 py-2">
               <Landmark className="h-4 w-4 text-sky-300" />
-              Receita baseada no campo <span className="font-medium text-slate-200">amount</span> das reservas.
+              Receita baseada no campo{" "}
+              <span className="font-medium text-slate-200">amount</span> das
+              reservas.
             </div>
           </div>
         </section>
@@ -263,14 +371,21 @@ export default function FinancePage() {
               initial={{ opacity: 0, y: 24, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 18, scale: 0.98 }}
-              transition={{ type: 'spring', stiffness: 220, damping: 22 }}
+              transition={{ type: "spring", stiffness: 220, damping: 22 }}
               className="w-full max-w-xl rounded-[28px] border border-white/10 bg-slate-900 p-6 shadow-2xl shadow-slate-950/40"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-300">Nova despesa</p>
-                  <h3 className="mt-3 text-2xl font-semibold text-white">Adicionar lançamento financeiro</h3>
-                  <p className="mt-2 text-sm text-slate-400">Registre despesas operacionais para refletir o lucro líquido da pousada.</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-300">
+                    Nova despesa
+                  </p>
+                  <h3 className="mt-3 text-2xl font-semibold text-white">
+                    Adicionar lançamento financeiro
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-400">
+                    Registre despesas operacionais para refletir o lucro líquido
+                    da pousada.
+                  </p>
                 </div>
                 <button
                   onClick={() => setIsModalOpen(false)}
@@ -282,11 +397,18 @@ export default function FinancePage() {
 
               <form onSubmit={handleSubmit} className="mt-8 space-y-5">
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-200">Descrição</span>
+                  <span className="mb-2 block text-sm font-medium text-slate-200">
+                    Descrição
+                  </span>
                   <input
                     type="text"
                     value={form.description}
-                    onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        description: event.target.value,
+                      }))
+                    }
                     placeholder="Ex.: Reparo do sistema hidráulico"
                     className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
                   />
@@ -294,12 +416,17 @@ export default function FinancePage() {
 
                 <div className="grid gap-5 md:grid-cols-2">
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-200">Valor</span>
+                    <span className="mb-2 block text-sm font-medium text-slate-200">
+                      Valor
+                    </span>
                     <input
                       type="text"
                       value={form.amount}
                       onChange={(event) =>
-                        setForm((current) => ({ ...current, amount: formatCurrencyInput(event.target.value) }))
+                        setForm((current) => ({
+                          ...current,
+                          amount: formatCurrencyInput(event.target.value),
+                        }))
                       }
                       inputMode="numeric"
                       placeholder="R$ 0,00"
@@ -307,22 +434,55 @@ export default function FinancePage() {
                     />
                   </label>
 
+                <div className="grid gap-5 md:grid-cols-2">
                   <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-slate-200">Data</span>
+                    <span className="mb-2 block text-sm font-medium text-slate-200">
+                      Check-in
+                    </span>
                     <input
-                      type="date"
-                      value={form.date}
-                      onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
+                      type="datetime-local"
+                      value={form.checkIn}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          checkIn: event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-200">
+                      Check-out
+                    </span>
+                    <input
+                      type="datetime-local"
+                      value={form.checkOut}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          checkOut: event.target.value,
+                        }))
+                      }
                       className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none"
                     />
                   </label>
                 </div>
+                </div>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-200">Categoria</span>
+                  <span className="mb-2 block text-sm font-medium text-slate-200">
+                    Categoria
+                  </span>
                   <select
                     value={form.category}
-                    onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as ExpenseCategory }))}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        category: event.target.value as ExpenseCategory,
+                      }))
+                    }
                     className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none"
                   >
                     {expenseCategories.map((category) => (
@@ -333,7 +493,95 @@ export default function FinancePage() {
                   </select>
                 </label>
 
-                {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-slate-200">
+                    Quarto
+                  </span>
+                  <select
+                    value={form.roomId}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        roomId: event.target.value,
+                      }))
+                    }
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none"
+                  >
+                    <option value="">Selecione um quarto</option>
+                    {rooms.map((room) => (
+                      <option key={room.id} value={room.id}>
+                        {room.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="grid gap-5 md:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-200">
+                      Fornecedor
+                    </span>
+                    <input
+                      type="text"
+                      value={form.supplier}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          supplier: event.target.value,
+                        }))
+                      }
+                      placeholder="Ex.: Empresa XYZ Ltda"
+                      className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-200">
+                      Forma de pagamento
+                    </span>
+                    <select
+                      value={form.paymentMethod}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          paymentMethod: event.target.value as any,
+                        }))
+                      }
+                      className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none"
+                    >
+                      <option value="cash">Dinheiro</option>
+                      <option value="credit_card">Cartão de crédito</option>
+                      <option value="debit_card">Cartão de débito</option>
+                      <option value="bank_transfer">
+                        Transferência bancária
+                      </option>
+                      <option value="pix">PIX</option>
+                      <option value="check">Cheque</option>
+                    </select>
+                  </label>
+                </div>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-slate-200">
+                    Observações
+                  </span>
+                  <textarea
+                    value={form.notes}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        notes: event.target.value,
+                      }))
+                    }
+                    placeholder="Detalhes adicionais sobre a despesa..."
+                    rows={3}
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
+                  />
+                </label>
+
+                {error ? (
+                  <p className="text-sm text-rose-300">{error}</p>
+                ) : null}
 
                 <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                   <button
@@ -348,7 +596,7 @@ export default function FinancePage() {
                     disabled={isSaving}
                     className="rounded-2xl bg-sky-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-950/30 disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {isSaving ? 'Salvando...' : 'Salvar despesa'}
+                    {isSaving ? "Salvando..." : "Salvar despesa"}
                   </button>
                 </div>
               </form>

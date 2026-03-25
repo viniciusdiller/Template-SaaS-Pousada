@@ -1,14 +1,18 @@
-export type OtaSource = 'booking' | 'expedia' | 'hotels_com' | 'manual';
+export type OtaSource = "booking" | "expedia" | "hotels_com" | "manual";
 
 export type Room = {
   id: string;
   channexRoomTypeId: string;
   name: string;
   maxGuests: number;
-  status: 'active' | 'maintenance';
+  status: "active" | "maintenance";
 };
 
-export type ReservationStatus = 'confirmed' | 'pending' | 'cancelled' | 'blocked';
+export type ReservationStatus =
+  | "confirmed"
+  | "pending"
+  | "cancelled"
+  | "blocked";
 
 export type Customer = {
   name: string;
@@ -32,12 +36,29 @@ export type Reservation = {
   checkedOutAt?: string | null;
 };
 
-export type ExpenseCategory = 'limpeza' | 'manutenção' | 'impostos' | 'insumos' | 'comissões' | 'outros';
+export type ExpenseCategory =
+  | "limpeza"
+  | "manutenção"
+  | "impostos"
+  | "insumos"
+  | "comissões"
+  | "outros";
 
 export type Expense = {
   id: string;
   description: string;
   amount: number;
-  date: string;
+  checkIn: string;
+  checkOut: string;
+  roomId: string;
   category: ExpenseCategory;
+  supplier?: string;
+  paymentMethod?:
+    | "cash"
+    | "credit_card"
+    | "debit_card"
+    | "bank_transfer"
+    | "pix"
+    | "check";
+  notes?: string;
 };
