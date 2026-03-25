@@ -6,7 +6,7 @@ export type UserAttributes = {
   email: string;
   passwordHash: string;
   role: "owner" | "staff";
-  permissions: string; // JSON string of permissions array
+  permissions: string;
   isActive: boolean;
   createdAt?: Date;
   updatedAt?: Date;
@@ -31,7 +31,7 @@ export class User
   declare readonly createdAt: Date;
   declare readonly updatedAt: Date;
 
-  static initialize(sequelize: Sequelize) {
+  static initModel(sequelize: Sequelize) {
     User.init(
       {
         id: {
@@ -79,5 +79,11 @@ export class User
         modelName: "User",
       },
     );
+
+    return User;
+  }
+
+  static initialize(sequelize: Sequelize) {
+    return User.initModel(sequelize);
   }
 }
