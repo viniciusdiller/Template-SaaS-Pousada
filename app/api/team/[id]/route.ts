@@ -5,24 +5,7 @@ import {
   updateTeamMemberSchema,
   type UpdateTeamMemberInput,
 } from "@/lib/validations";
-import type { TeamPermission, TeamRole } from "@/types/team";
-
-const allowedPermissions: TeamPermission[] = [
-  "calendar",
-  "finance",
-  "checkin",
-  "team",
-];
-
-function sanitizePermissions(permissions: TeamPermission[] | undefined) {
-  if (!permissions?.length) {
-    return [];
-  }
-
-  return permissions.filter((permission) =>
-    allowedPermissions.includes(permission),
-  );
-}
+import type { TeamPermission } from "@/types/team";
 
 const allowedPermissions: TeamPermission[] = [
   "calendar",
@@ -59,7 +42,7 @@ export async function PATCH(
   if (!validation.success) {
     return NextResponse.json(
       {
-        message: validation.error.errors[0]?.message || "Dados inválidos.",
+        message: validation.error.issues[0]?.message || "Dados inválidos.",
       },
       { status: 400 },
     );
@@ -83,17 +66,18 @@ export async function PATCH(
       );
     }
 
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (validatedData.name !== undefined) updateData.name = validatedData.name;
     if (validatedData.role !== undefined) updateData.role = validatedData.role;
-    if (validatedData.permissions !== undefined)
-      updateData.permissions = JSON.stringify(validatedData.permissions);
+    if (validatedData.permissions !== undefined) {
+      updateData.permissions = JSON.stringify(
+        sanitizePermissions(validatedData.permissions),
+      );
+    }
     if (validatedData.loginEnabled !== undefined)
       updateData.isActive = validatedData.loginEnabled;
 
     await member.update(updateData);
-
-    // Refresh member data
     await member.reload();
 
     return NextResponse.json({

@@ -6,24 +6,7 @@ import {
   createTeamMemberSchema,
   type CreateTeamMemberInput,
 } from "@/lib/validations";
-import type { TeamPermission, TeamRole } from "@/types/team";
-
-const allowedPermissions: TeamPermission[] = [
-  "calendar",
-  "finance",
-  "checkin",
-  "team",
-];
-
-function sanitizePermissions(permissions: TeamPermission[] | undefined) {
-  if (!permissions?.length) {
-    return [];
-  }
-
-  return permissions.filter((permission) =>
-    allowedPermissions.includes(permission),
-  );
-}
+import type { TeamPermission } from "@/types/team";
 
 const allowedPermissions: TeamPermission[] = [
   "calendar",
@@ -54,7 +37,7 @@ export async function GET(request: Request) {
     const db = await getDatabase();
     const members = await db.User.findAll({
       where: { isActive: true },
-      attributes: ["id", "name", "email", "role", "permissions"],
+      attributes: ["id", "name", "email", "role", "permissions", "isActive"],
       order: [["createdAt", "DESC"]],
     });
 
@@ -64,6 +47,7 @@ export async function GET(request: Request) {
       email: member.email,
       role: member.role,
       permissions: JSON.parse(member.permissions),
+      loginEnabled: member.isActive,
     }));
 
     return NextResponse.json({ members: formattedMembers });
@@ -90,7 +74,7 @@ export async function POST(request: Request) {
   if (!validation.success) {
     return NextResponse.json(
       {
-        message: validation.error.errors[0]?.message || "Dados inválidos.",
+        message: validation.error.issues[0]?.message || "Dados inválidos.",
       },
       { status: 400 },
     );
@@ -101,7 +85,6 @@ export async function POST(request: Request) {
   try {
     const db = await getDatabase();
 
-    // Check if user already exists
     const existingMember = await db.User.findOne({
       where: { email: validatedData.email, isActive: true },
     });
@@ -114,7 +97,7 @@ export async function POST(request: Request) {
     }
 
     const passwordHash = await bcrypt.hash(validatedData.password, 10);
-    const permissions = validatedData.permissions || [];
+    const permissions = sanitizePermissions(validatedData.permissions);
 
     const member = await db.User.create({
       name: validatedData.name,
@@ -133,6 +116,7 @@ export async function POST(request: Request) {
           email: member.email,
           role: member.role,
           permissions,
+          loginEnabled: member.isActive,
         },
       },
       { status: 201 },

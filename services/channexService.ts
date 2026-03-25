@@ -1,9 +1,58 @@
+import { Op } from "sequelize";
 import { getDatabase } from "@/lib/database";
 import type { Expense, Reservation, Room } from "@/types/channex";
 
+function normalizeDateOnly(value: unknown): string {
+  if (!value) return "";
+
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  if (typeof value === "string") {
+    if (value.length >= 10) {
+      return value.slice(0, 10);
+    }
+
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString().slice(0, 10);
+    }
+  }
+
+  return "";
+}
+
+function normalizeDateTime(value: unknown): string | null {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+
+  return null;
+}
+
+function normalizeAmount(value: unknown): number {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
 export async function getRooms(): Promise<Room[]> {
-  const db = getDatabase();
-  const roomRecords = await db.Room.findAll();
+  const db = await getDatabase();
+  const roomRecords = await db.Room.findAll({ order: [["name", "ASC"]] });
+
   return roomRecords.map((room) => ({
     id: room.localRoomId,
     channexRoomTypeId: room.channexRoomTypeId,
@@ -14,19 +63,21 @@ export async function getRooms(): Promise<Room[]> {
 }
 
 export async function getReservations(): Promise<Reservation[]> {
-  const db = getDatabase();
-  const reservationRecords = await db.Reservation.findAll({
+  const db = await getDatabase();
+  const reservationRecords = (await db.Reservation.findAll({
     include: [{ model: db.Room, as: "room" }],
-  });
+    order: [["checkIn", "ASC"]],
+  })) as any[];
+
   return reservationRecords.map((reservation) => ({
     id: reservation.id.toString(),
     roomId: reservation.room?.localRoomId || "",
-    checkIn: reservation.checkIn,
-    checkOut: reservation.checkOut,
+    checkIn: normalizeDateOnly(reservation.checkIn),
+    checkOut: normalizeDateOnly(reservation.checkOut),
     status: reservation.status,
     otaSource: reservation.otaSource,
     channelReference: reservation.channexReservationId,
-    amount: reservation.amount || 0,
+    amount: normalizeAmount(reservation.amount),
     currency: reservation.currency || "BRL",
     customer: {
       name: reservation.guestName,
@@ -34,24 +85,25 @@ export async function getReservations(): Promise<Reservation[]> {
       phone: reservation.guestPhone || "",
     },
     notes: reservation.notes || "",
-    checkedInAt: reservation.checkedInAt?.toISOString() || null,
-    checkedOutAt: reservation.checkedOutAt?.toISOString() || null,
+    checkedInAt: normalizeDateTime(reservation.checkedInAt),
+    checkedOutAt: normalizeDateTime(reservation.checkedOutAt),
   }));
 }
 
 export async function updateReservation(
   updatedReservation: Reservation,
 ): Promise<Reservation> {
-  const db = getDatabase();
+  const db = await getDatabase();
   const reservationRecord = await db.Reservation.findByPk(
-    parseInt(updatedReservation.id),
+    parseInt(updatedReservation.id, 10),
   );
+
   if (!reservationRecord) throw new Error("Reservation not found");
 
-  // Find room by localRoomId
   const room = await db.Room.findOne({
     where: { localRoomId: updatedReservation.roomId },
   });
+
   if (!room) throw new Error("Room not found");
 
   await reservationRecord.update({
@@ -72,53 +124,99 @@ export async function updateReservation(
 }
 
 export async function getExpenses(): Promise<Expense[]> {
-  // TODO: Implement Expense model and database fetching
-  return [];
-}
+  const db = await getDatabase();
+  const records = await db.Expense.findAll({ order: [["createdAt", "DESC"]] });
 
-let expenses: Expense[] = [];
+  return records.map((expense) => ({
+    id: expense.id.toString(),
+    description: expense.description,
+    amount: normalizeAmount(expense.amount),
+    checkIn: normalizeDateTime(expense.checkIn) || "",
+    checkOut: normalizeDateTime(expense.checkOut) || "",
+    roomId: expense.roomId || "",
+    category: expense.category,
+    supplier: expense.supplier || undefined,
+    paymentMethod: expense.paymentMethod || undefined,
+    notes: expense.notes || undefined,
+  }));
+}
 
 export async function createExpense(
   input: Omit<Expense, "id">,
 ): Promise<Expense> {
-  const nextExpense: Expense = {
-    id: `exp_${Date.now()}`,
-    ...input,
+  const db = await getDatabase();
+
+  const created = await db.Expense.create({
+    description: input.description,
+    amount: normalizeAmount(input.amount),
+    checkIn: new Date(input.checkIn),
+    checkOut: new Date(input.checkOut),
+    roomId: input.roomId || null,
+    category: input.category,
+    supplier: input.supplier || null,
+    paymentMethod: input.paymentMethod || null,
+    notes: input.notes || null,
+  });
+
+  return {
+    id: created.id.toString(),
+    description: created.description,
+    amount: normalizeAmount(created.amount),
+    checkIn: normalizeDateTime(created.checkIn) || input.checkIn,
+    checkOut: normalizeDateTime(created.checkOut) || input.checkOut,
+    roomId: created.roomId || "",
+    category: created.category,
+    supplier: created.supplier || undefined,
+    paymentMethod: created.paymentMethod || undefined,
+    notes: created.notes || undefined,
   };
-
-  expenses = [nextExpense, ...expenses];
-
-  return nextExpense;
 }
 
 export async function getCheckInOutBoard(referenceDate = new Date()) {
+  const db = await getDatabase();
   const date = referenceDate.toISOString().slice(0, 10);
 
-  const arrivals = reservations.filter(
-    (reservation) =>
-      reservation.checkIn === date &&
-      reservation.status !== "cancelled" &&
-      reservation.status !== "blocked",
-  );
+  const records = (await db.Reservation.findAll({
+    where: {
+      [Op.or]: [{ checkIn: date }, { checkOut: date }],
+      status: { [Op.notIn]: ["cancelled", "blocked"] },
+    },
+    include: [{ model: db.Room, as: "room" }],
+  })) as any[];
 
-  const departures = reservations.filter(
-    (reservation) =>
-      reservation.checkOut === date &&
-      reservation.status !== "cancelled" &&
-      reservation.status !== "blocked",
-  );
+  const reservations = records.map((reservation) => ({
+    id: reservation.id.toString(),
+    roomId: reservation.room?.localRoomId || "",
+    checkIn: normalizeDateOnly(reservation.checkIn),
+    checkOut: normalizeDateOnly(reservation.checkOut),
+    status: reservation.status,
+    otaSource: reservation.otaSource,
+    channelReference: reservation.channexReservationId,
+    amount: normalizeAmount(reservation.amount),
+    currency: reservation.currency || "BRL",
+    customer: {
+      name: reservation.guestName,
+      email: reservation.guestEmail || "",
+      phone: reservation.guestPhone || "",
+    },
+    notes: reservation.notes || "",
+    checkedInAt: normalizeDateTime(reservation.checkedInAt),
+    checkedOutAt: normalizeDateTime(reservation.checkedOutAt),
+  }));
 
-  return simulateDelay({
+  const arrivals = reservations.filter((reservation) => reservation.checkIn === date);
+  const departures = reservations.filter((reservation) => reservation.checkOut === date);
+
+  return {
     date,
     arrivals,
     departures,
-  });
+  };
 }
 
 export async function registerCheckIn(reservationId: string) {
-  const target = reservations.find(
-    (reservation) => reservation.id === reservationId,
-  );
+  const db = await getDatabase();
+  const target = await db.Reservation.findByPk(parseInt(reservationId, 10));
 
   if (!target) {
     throw new Error("Reserva nao encontrada.");
@@ -128,15 +226,13 @@ export async function registerCheckIn(reservationId: string) {
     throw new Error("Esta reserva nao pode receber check-in.");
   }
 
-  target.checkedInAt = new Date().toISOString();
-
-  return simulateDelay(structuredClone(target));
+  await target.update({ checkedInAt: new Date() });
+  return target;
 }
 
 export async function registerCheckOut(reservationId: string) {
-  const target = reservations.find(
-    (reservation) => reservation.id === reservationId,
-  );
+  const db = await getDatabase();
+  const target = await db.Reservation.findByPk(parseInt(reservationId, 10));
 
   if (!target) {
     throw new Error("Reserva nao encontrada.");
@@ -146,9 +242,8 @@ export async function registerCheckOut(reservationId: string) {
     throw new Error("Nao e possivel fazer check-out antes do check-in.");
   }
 
-  target.checkedOutAt = new Date().toISOString();
-
-  return simulateDelay(structuredClone(target));
+  await target.update({ checkedOutAt: new Date() });
+  return target;
 }
 
 export async function getUnifiedInventory() {

@@ -1,73 +1,80 @@
-import { Sequelize } from "sequelize";
-import mysql from "mysql2";
-import { createSequelizeClient, initializeModels } from "@/models";
 import bcrypt from "bcryptjs";
+import mysql from "mysql2";
+import { Sequelize } from "sequelize";
+import {
+  createSequelizeClient,
+  initializeModels,
+  type DatabaseModels,
+} from "@/models";
 
-let db: ReturnType<typeof initializeModels> | null = null;
+type GlobalDatabaseCache = {
+  db: DatabaseModels | null;
+  initPromise: Promise<DatabaseModels> | null;
+};
 
-export async function getDatabase() {
-  if (!db) {
-    const sequelize = createSequelizeClient();
+const globalForDatabase = globalThis as typeof globalThis & {
+  __dbCache?: GlobalDatabaseCache;
+};
 
-    try {
-      // Try to create database if it doesn't exist
-      const dbName = process.env.DB_NAME || "channel_manager";
-      const rootSequelize = new Sequelize({
-        dialect: "mysql",
-        dialectModule: mysql as any,
-        host: process.env.DB_HOST || "localhost",
-        port: Number(process.env.DB_PORT || 3306),
-        username: process.env.DB_USER || "root",
-        password: process.env.DB_PASSWORD || "",
-        logging: false,
-      });
+const cache: GlobalDatabaseCache = globalForDatabase.__dbCache ?? {
+  db: null,
+  initPromise: null,
+};
 
-      try {
-        await rootSequelize.query(
-          `CREATE DATABASE IF NOT EXISTS \`${dbName}\``,
-        );
-        console.log(`✅ Database '${dbName}' ensured to exist.`);
-      } catch (createError) {
-        console.warn(
-          "⚠️ Could not create database, proceeding anyway:",
-          createError.message,
-        );
-      } finally {
-        await rootSequelize.close();
-      }
+globalForDatabase.__dbCache = cache;
 
-      await sequelize.authenticate();
-      console.log("✅ Database connection established successfully.");
+async function initializeDatabase(): Promise<DatabaseModels> {
+  const sequelize = createSequelizeClient();
 
-      db = initializeModels(sequelize);
+  const dbName = process.env.DB_NAME || "channel_manager";
+  const rootSequelize = new Sequelize({
+    dialect: "mysql",
+    dialectModule: mysql as any,
+    host: process.env.DB_HOST || "localhost",
+    port: Number(process.env.DB_PORT || 3306),
+    username: process.env.DB_USER || "root",
+    password: process.env.DB_PASSWORD || "",
+    logging: false,
+  });
 
-      // Sync database (create tables if they don't exist)
-      await sequelize.sync();
-      console.log("✅ Database synchronized successfully.");
-
-      // Seed initial data
-      await seedInitialData(db);
-    } catch (error) {
-      console.error("❌ Unable to connect to the database:", error);
-      throw error;
-    }
+  try {
+    await rootSequelize.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\``);
+  } finally {
+    await rootSequelize.close();
   }
+
+  await sequelize.authenticate();
+
+  const db = initializeModels(sequelize);
+  await sequelize.sync();
+  await seedInitialData(db);
 
   return db;
 }
 
-async function seedInitialData(db: ReturnType<typeof initializeModels>) {
-  try {
-    // Check if users already exist
-    const userCount = await db.User.count();
-    if (userCount > 0) {
-      console.log("✅ Initial data already seeded.");
-      return;
-    }
+export async function getDatabase(): Promise<DatabaseModels> {
+  if (cache.db) {
+    return cache.db;
+  }
 
-    console.log("🌱 Seeding initial data...");
+  if (!cache.initPromise) {
+    cache.initPromise = initializeDatabase()
+      .then((database) => {
+        cache.db = database;
+        return database;
+      })
+      .catch((error) => {
+        cache.initPromise = null;
+        throw error;
+      });
+  }
 
-    // Create default admin user
+  return cache.initPromise;
+}
+
+async function seedInitialData(db: DatabaseModels) {
+  const userCount = await db.User.count();
+  if (userCount === 0) {
     const adminPasswordHash = await bcrypt.hash("sancho123", 10);
     await db.User.create({
       name: "Administrador",
@@ -78,7 +85,6 @@ async function seedInitialData(db: ReturnType<typeof initializeModels>) {
       isActive: true,
     });
 
-    // Create demo staff users
     const staff1PasswordHash = await bcrypt.hash("equipe123", 10);
     await db.User.create({
       name: "Camila Recepção",
@@ -98,16 +104,40 @@ async function seedInitialData(db: ReturnType<typeof initializeModels>) {
       permissions: JSON.stringify(["calendar"]),
       isActive: true,
     });
+  }
 
-    console.log("✅ Initial data seeded successfully.");
-  } catch (error) {
-    console.error("❌ Error seeding initial data:", error);
+  const roomCount = await db.Room.count();
+  if (roomCount === 0) {
+    await db.Room.bulkCreate([
+      {
+        localRoomId: "SUITE_MASTER",
+        channexRoomTypeId: "suite_master",
+        name: "Suíte Master",
+        maxGuests: 4,
+        status: "active",
+      },
+      {
+        localRoomId: "BANGALO_01",
+        channexRoomTypeId: "bangalo_01",
+        name: "Bangalô 01",
+        maxGuests: 3,
+        status: "active",
+      },
+      {
+        localRoomId: "STANDARD_01",
+        channexRoomTypeId: "standard_01",
+        name: "Standard 01",
+        maxGuests: 2,
+        status: "active",
+      },
+    ]);
   }
 }
 
 export async function closeDatabase() {
-  if (db) {
-    await db.sequelize.close();
-    db = null;
+  if (cache.db) {
+    await cache.db.sequelize.close();
+    cache.db = null;
+    cache.initPromise = null;
   }
 }

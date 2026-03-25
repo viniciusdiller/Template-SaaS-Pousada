@@ -30,7 +30,7 @@ export async function validateCredentials(email: string, password: string) {
   try {
     const db = await getDatabase();
     const member = await db.User.findOne({
-      where: { email, isActive: true },
+      where: { email },
     });
 
     if (!member) {
@@ -46,6 +46,13 @@ export async function validateCredentials(email: string, password: string) {
       return {
         ok: false,
         reason: "invalid_credentials",
+      } satisfies AuthValidationResult;
+    }
+
+    if (!member.isActive) {
+      return {
+        ok: false,
+        reason: "login_disabled",
       } satisfies AuthValidationResult;
     }
 
