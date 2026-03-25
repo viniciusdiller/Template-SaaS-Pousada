@@ -74,39 +74,64 @@ export async function getDatabase(): Promise<DatabaseModels> {
 
 async function seedInitialData(db: DatabaseModels) {
   const userCount = await db.User.count();
-  if (userCount > 0) {
-    return;
+  if (userCount === 0) {
+    const adminPasswordHash = await bcrypt.hash("sancho123", 10);
+    await db.User.create({
+      name: "Administrador",
+      email: "admin@pousadasancho.com",
+      passwordHash: adminPasswordHash,
+      role: "owner",
+      permissions: JSON.stringify(["calendar", "finance", "checkin", "team"]),
+      isActive: true,
+    });
+
+    const staff1PasswordHash = await bcrypt.hash("equipe123", 10);
+    await db.User.create({
+      name: "Camila Recepção",
+      email: "camila.recepcao@pousadasancho.com",
+      passwordHash: staff1PasswordHash,
+      role: "staff",
+      permissions: JSON.stringify(["calendar", "checkin"]),
+      isActive: true,
+    });
+
+    const staff2PasswordHash = await bcrypt.hash("manutencao123", 10);
+    await db.User.create({
+      name: "João Manutenção",
+      email: "joao.manutencao@pousadasancho.com",
+      passwordHash: staff2PasswordHash,
+      role: "staff",
+      permissions: JSON.stringify(["calendar"]),
+      isActive: true,
+    });
   }
 
-  const adminPasswordHash = await bcrypt.hash("sancho123", 10);
-  await db.User.create({
-    name: "Administrador",
-    email: "admin@pousadasancho.com",
-    passwordHash: adminPasswordHash,
-    role: "owner",
-    permissions: JSON.stringify(["calendar", "finance", "checkin", "team"]),
-    isActive: true,
-  });
-
-  const staff1PasswordHash = await bcrypt.hash("equipe123", 10);
-  await db.User.create({
-    name: "Camila Recepção",
-    email: "camila.recepcao@pousadasancho.com",
-    passwordHash: staff1PasswordHash,
-    role: "staff",
-    permissions: JSON.stringify(["calendar", "checkin"]),
-    isActive: true,
-  });
-
-  const staff2PasswordHash = await bcrypt.hash("manutencao123", 10);
-  await db.User.create({
-    name: "João Manutenção",
-    email: "joao.manutencao@pousadasancho.com",
-    passwordHash: staff2PasswordHash,
-    role: "staff",
-    permissions: JSON.stringify(["calendar"]),
-    isActive: true,
-  });
+  const roomCount = await db.Room.count();
+  if (roomCount === 0) {
+    await db.Room.bulkCreate([
+      {
+        localRoomId: "SUITE_MASTER",
+        channexRoomTypeId: "suite_master",
+        name: "Suíte Master",
+        maxGuests: 4,
+        status: "active",
+      },
+      {
+        localRoomId: "BANGALO_01",
+        channexRoomTypeId: "bangalo_01",
+        name: "Bangalô 01",
+        maxGuests: 3,
+        status: "active",
+      },
+      {
+        localRoomId: "STANDARD_01",
+        channexRoomTypeId: "standard_01",
+        name: "Standard 01",
+        maxGuests: 2,
+        status: "active",
+      },
+    ]);
+  }
 }
 
 export async function closeDatabase() {

@@ -2,6 +2,27 @@ import { Op } from "sequelize";
 import { getDatabase } from "@/lib/database";
 import type { Expense, Reservation, Room } from "@/types/channex";
 
+function normalizeDateOnly(value: unknown): string {
+  if (!value) return "";
+
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  if (typeof value === "string") {
+    if (value.length >= 10) {
+      return value.slice(0, 10);
+    }
+
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString().slice(0, 10);
+    }
+  }
+
+  return "";
+}
+
 export async function getRooms(): Promise<Room[]> {
   const db = await getDatabase();
   const roomRecords = await db.Room.findAll({ order: [["name", "ASC"]] });
@@ -25,8 +46,8 @@ export async function getReservations(): Promise<Reservation[]> {
   return reservationRecords.map((reservation) => ({
     id: reservation.id.toString(),
     roomId: reservation.room?.localRoomId || "",
-    checkIn: reservation.checkIn.toISOString().slice(0, 10),
-    checkOut: reservation.checkOut.toISOString().slice(0, 10),
+    checkIn: normalizeDateOnly(reservation.checkIn),
+    checkOut: normalizeDateOnly(reservation.checkOut),
     status: reservation.status,
     otaSource: reservation.otaSource,
     channelReference: reservation.channexReservationId,
@@ -109,8 +130,8 @@ export async function getCheckInOutBoard(referenceDate = new Date()) {
   const reservations = records.map((reservation) => ({
     id: reservation.id.toString(),
     roomId: reservation.room?.localRoomId || "",
-    checkIn: reservation.checkIn.toISOString().slice(0, 10),
-    checkOut: reservation.checkOut.toISOString().slice(0, 10),
+    checkIn: normalizeDateOnly(reservation.checkIn),
+    checkOut: normalizeDateOnly(reservation.checkOut),
     status: reservation.status,
     otaSource: reservation.otaSource,
     channelReference: reservation.channexReservationId,
