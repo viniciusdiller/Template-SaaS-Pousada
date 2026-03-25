@@ -1,28 +1,77 @@
 'use client';
 
 import Link from 'next/link';
+import type { Route } from 'next';
 import { usePathname } from 'next/navigation';
-import { CalendarRange, Landmark, PanelLeftClose } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { CalendarRange, Landmark, PanelLeftClose, Users, UserRoundCheck } from 'lucide-react';
+import { type ComponentType, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { hasPermission, type SessionUser } from '@/lib/auth-shared';
 import { cn } from '@/lib/utils';
+import type { TeamPermission } from '@/types/team';
 
-const NAV_ITEMS = [
+type NavItem = {
+  href: Route;
+  label: string;
+  description: string;
+  icon: ComponentType<{ className?: string }>;
+  permission: TeamPermission;
+};
+
+const NAV_ITEMS: NavItem[] = [
   {
     href: '/dashboard/calendar',
-    label: 'Calendário',
-    description: 'Operação e moderação de reservas',
+    label: 'Calendario',
+    description: 'Operacao e moderacao de reservas',
     icon: CalendarRange,
+    permission: 'calendar',
+  },
+  {
+    href: '/dashboard/checkin',
+    label: 'Check-in/out',
+    description: 'Chegadas e saidas da recepcao',
+    icon: UserRoundCheck,
+    permission: 'checkin',
   },
   {
     href: '/dashboard/finance',
     label: 'Financeiro',
-    description: 'KPIs, despesas e margem líquida',
+    description: 'KPIs, despesas e margem liquida',
     icon: Landmark,
+    permission: 'finance',
   },
-] as const;
+  {
+    href: '/dashboard/team',
+    label: 'Equipe',
+    description: 'Usuarios, logins e permissoes',
+    icon: Users,
+    permission: 'team',
+  },
+];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
+
+  useEffect(() => {
+    async function loadSession() {
+      const response = await fetch('/api/auth/session');
+
+      if (!response.ok) {
+        setSessionUser(null);
+        return;
+      }
+
+      const payload = (await response.json()) as { user: SessionUser };
+      setSessionUser(payload.user);
+    }
+
+    void loadSession();
+  }, []);
+
+  const visibleItems = useMemo(
+    () => NAV_ITEMS.filter((item) => hasPermission(sessionUser, item.permission)),
+    [sessionUser],
+  );
 
   return (
     <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8 lg:py-8">
@@ -33,7 +82,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-sky-300">Channel Manager</p>
               <h1 className="mt-3 text-2xl font-semibold text-white">Empresa Sancho</h1>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Painel operacional para disponibilidade, moderação de reservas e controle financeiro.
+                Painel operacional para disponibilidade, moderacao de reservas e controle financeiro.
               </p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-slate-800/70 p-3 text-slate-300">
@@ -42,7 +91,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
 
           <nav className="mt-5 space-y-3">
-            {NAV_ITEMS.map((item) => {
+            {visibleItems.map((item) => {
               const isActive = pathname.startsWith(item.href);
               const Icon = item.icon;
 

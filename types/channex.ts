@@ -28,6 +28,8 @@ export type Reservation = {
   currency: string;
   customer: Customer;
   notes: string;
+  checkedInAt?: string | null;
+  checkedOutAt?: string | null;
 };
 
 export type ExpenseCategory = 'limpeza' | 'manutenção' | 'impostos' | 'insumos' | 'comissões' | 'outros';
